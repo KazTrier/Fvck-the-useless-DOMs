@@ -1,4 +1,4 @@
-// version 1022.0.0
+// version 1023.0.0
 
 (function () {
   'use strict';
@@ -89,10 +89,11 @@
       id: 'worldEntry', name: '世界书·条目编辑器',
       button: '#WI-SP-button',
       curated: true,
-      // 只作用于条目列表里的克隆体。模板 #entry_edit_template 绝不写类：
-      // 它被 cloneNode(true) 复制给之后新建的每一个条目，插件一旦卸载，类会永久留在模板里。
-      scope: '#world_popup_entries_list',
-      observe: ['#world_popup', '#world_popup_entries_list'],
+      // 全局作用域：文档里任何一处条目编辑器都算，包括 #entry_edit_template 模板本体。
+      // 好处是条目一个都没展开时这一页也不空（22 个开关照常可调），且宿主把编辑器
+      // 换个挂载点也不会漏。代价是模板上也会写隐藏类，新建条目的克隆体会继承同样的类；
+      // applyAll 每轮按同一份设置重算，所以恢复分组时克隆会跟着恢复。
+      observe: ['#world_popup', '#world_popup_entries_list', '#entry_edit_template'],
     },
     {
       id: 'advancedFormatting', name: '高级格式化',
@@ -3175,7 +3176,7 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M26',
+      version: 'M27',
       settings,
       groups: GROUPS,
       getGroup,
