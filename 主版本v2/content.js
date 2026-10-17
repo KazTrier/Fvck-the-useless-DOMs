@@ -1,4 +1,4 @@
-// version 1016.0.0
+// version 1017.0.0
 
 (function () {
   'use strict';
@@ -93,7 +93,15 @@
   const MES_CONTAINER_SEL = '#message_template .mes_buttons, #chat .mes_buttons, .mes_buttons';
 
   // 原生分隔线
-  const SEPARATOR_SELECTORS = ['#options .options-content > hr', '#extensionsMenu > hr'];
+  // 原生分隔线：现代前端（含 TauriTavern 2.3.0）wandMenu 已无 <hr>，用 divider 类名兜底；
+// 三处都不存在时 applySeparatorHides 自然空转，不再产生「开关无效」的错觉。
+  const SEPARATOR_SELECTORS = [
+    '#options .options-content > hr',
+    '#extensionsMenu > hr',
+    '#extensionsMenu > .extension-container-divider',
+    '#extensionsMenu > [class*="divider"]',
+    '#qr--bar > hr',
+  ];
 
   // 内置消息按钮友好标签映射（真的需要这部分吗？我认为扫描器本身已经能正确提取元素的title，有点想删掉这部分）
   const MES_BUTTON_DEFAULT_LABELS = {
@@ -569,21 +577,42 @@
            countBadge;
   }
 
-  // 适配 TauriTavern 2.3.0 SubtreeGate：抽屉收起时其子节点会被脱水暂存到 DocumentFragment。
-  // 在扫描或展开管理界面前，确保其子树按需水合，避免候选条目扫描遗漏。
-  function ensureExtensionsHydrated() {
+  // 适配 TauriTavern 2.3.0 Panel Runtime：抽屉收起时子树会被脱水（脱离文档 / 暂存 DocumentFragment）。
+  // 通用水合：按 slot id 请求宿主把子树接回文档，扫描与展开管理界面前必须调用。
+  // slot id 契约（见 adapters/panel-runtime/top-settings-panel-parking.js:225 与 extensions-subtree-gates.js:89）：
+  //   'panel:<panelId>'                                  DrawerContent 停放
+  //   'tt:gate:<hostId>:extension_containers'            扩展设置子树停放
+  const PANEL_SLOTS = {
+    extensionsSettings: 'tt:gate:rm_extensions_block:extension_containers',
+    userSettings: 'panel:user-settings-block',
+    presetSettings: 'panel:left-nav-panel',
+  };
+
+  function ensureSlotHydrated(slotId) {
+    if (!slotId) return false;
     try {
       const mgr = win.__TAURITAVERN_PANEL_RUNTIME__;
-      if (mgr && typeof mgr.setVisible === 'function' && typeof mgr.reconcile === 'function') {
-        const slotId = 'tt:gate:rm_extensions_block:extension_containers';
-        mgr.setVisible(slotId, true);
-        mgr.reconcile();
-        return true;
-      }
+      if (!mgr || typeof mgr.setVisible !== 'function' || typeof mgr.reconcile !== 'function') return false;
+      mgr.setVisible(slotId, true);
+      mgr.reconcile();
+      return true;
     } catch (e) {
-      console.warn('[菜单精简器] 水合扩展子树失败喵：', e);
+      console.warn('[菜单精简器] 水合面板失败喵：', slotId, e);
+      return false;
     }
-    return false;
+  }
+
+  // 一次性把本插件关心的全部面板接回文档（打开管理界面前调用，保证列表完整）
+  function hydrateAllPanels() {
+    let n = 0;
+    for (const slotId of Object.values(PANEL_SLOTS)) {
+      if (ensureSlotHydrated(slotId)) n++;
+    }
+    return n;
+  }
+
+  function ensureExtensionsHydrated() {
+    return ensureSlotHydrated(PANEL_SLOTS.extensionsSettings);
   }
 
   // ─── §5  SCANNER ─────────────────────────────────────────────────────────────
@@ -663,6 +692,16 @@
         }
       };
       for (const c of children) scanQrNode(c);
+      // TauriTavern：qr--bar 在「弹出模式」下是空壳，按钮实际渲染在 body 上的 #qr--popout .qr--body
+      if (!out.length) {
+        const popBody = doc.querySelector('#qr--popout .qr--body');
+        if (popBody) {
+          for (const c of popBody.children) scanQrNode(c);
+          if (!out.length) {
+            for (const c of popBody.querySelectorAll('.qr--button, .menu_button, button, a')) scanQrNode(c);
+          }
+        }
+      }
       return out;
     }
 
@@ -694,9 +733,9 @@
 
   // 扫描器总结阶段：记录、去重、消歧。产出统一 record { key, el, els, unit, units, groupId, label, column? }。
   function scanGroup(group) {
-    if (group.id === 'extensionsSettings') {
-      ensureExtensionsHydrated();
-    }
+    // curated 组没有 containers：外部若按 id 遍历调用，统一转 scanCurated，避免 group.containers 读取崩溃
+    if (group.curated) return scanCurated(group);
+    if (PANEL_SLOTS[group.id]) ensureSlotHydrated(PANEL_SLOTS[group.id]);
     const records = [];
     const byKey = Object.create(null);
     const derivedCount = Object.create(null);
@@ -761,6 +800,9 @@
 
   // curated 面板扫描（预设/用户设置，按组打包隐藏，不排序）
   function scanCurated(group) {
+    // 预设菜单（left-nav-panel）与用户设置（user-settings-block）在 TauriTavern 里会被整体停放，
+    // 不水合则 querySelectorAll 全空，整组静默消失。
+    if (PANEL_SLOTS[group.id]) ensureSlotHydrated(PANEL_SLOTS[group.id]);
     const records = [];
     const definitions = group.id === 'userSettings' ? getUserSettingsGroups() : (CURATED_GROUPS[group.id] || []);
     for (const pg of definitions) {
@@ -2293,7 +2335,7 @@
     });
   }
 
-  function openPopup() { ensureExtensionsHydrated(); buildPopup(); renderPopup(); doc.getElementById('mc3-overlay').style.display = 'flex'; }
+  function openPopup() { hydrateAllPanels(); buildPopup(); renderPopup(); doc.getElementById('mc3-overlay').style.display = 'flex'; }
   function closePopup() { const o = doc.getElementById('mc3-overlay'); if (o) o.style.display = 'none'; }
 
   // ─── §11  UI — INTERACT ──────────────────────────────────────────────────────
@@ -2820,14 +2862,14 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M18',
+      version: 'M19',
       settings,
       groups: GROUPS,
       getGroup,
       scanGroup, scanMesButtons, scanCurated, scanAll,
       applyAll, applyMesButtons, clearMesButtons,
       ensureContainersObserved,
-      renderMesButtonsCard, applyPseudoSubgroups, applyCustomSelectors,
+      ensureSlotHydrated, hydrateAllPanels, PANEL_SLOTS,      renderMesButtonsCard, applyPseudoSubgroups, applyCustomSelectors,
       addCustomSelector: (sel, label) => CustomSelectors.add(sel, label),
       deleteCustomSelector: (id) => CustomSelectors.remove(id),
       setColumnMode,
