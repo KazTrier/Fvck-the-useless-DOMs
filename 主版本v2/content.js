@@ -1,4 +1,4 @@
-// version 1020.0.0
+// version 1021.0.0
 
 (function () {
   'use strict';
@@ -95,7 +95,10 @@
       id: 'worldEntry', name: '世界书·条目编辑器',
       button: '#WI-SP-button',
       curated: true,
-      observe: ['#world_popup', '#world_popup_entries_list', '#entry_edit_template'],
+      // 只作用于条目列表里的克隆体。模板 #entry_edit_template 绝不写类：
+      // 它被 cloneNode(true) 复制给之后新建的每一个条目，插件一旦卸载，类会永久留在模板里。
+      scope: '#world_popup_entries_list',
+      observe: ['#world_popup', '#world_popup_entries_list'],
     },
     {
       id: 'advancedFormatting', name: '高级格式化',
@@ -263,7 +266,8 @@
   // 世界书面板（#wi-holder）：按功能区拆，锚点尽量用 id；滑块类控件命中 input 后
   // closest 上溯到它那一行（#wiSliders 的每个子行都是 .flexFlowColumn），不用 nth-child。
   const WORLD_INFO_GROUPS = [
-    { label: '标题栏', selectors: ['#WorldInfoheader'] },
+    { label: '标题行（Worlds / Lorebooks）', selectors: ['#WorldInfo > div.flex-container.alignitemscenter.gap10px'] },
+    { label: '激活参数折叠栏（Scan Depth / Budget / Min Activations）', selectors: ['#wiTopBlock .inline-drawer > .inline-drawer-header'] },
     { label: '世界书多选器（全局启用哪几本）', selectors: ['#WIMultiSelector'] },
 
     // ── 全局激活设置 ──
@@ -287,7 +291,6 @@
     { label: '刷新', selectors: ['#world_refresh'] },
     { label: '分页', selectors: ['#world_info_pagination'] },
 
-    { label: '条目列表（整块隐藏，慎用）', selectors: ['#world_popup_entries_list'] },
   ];
   // 高级格式化：三栏模板编辑器
   const ADVANCED_FORMATTING_GROUPS = [
@@ -309,7 +312,7 @@
     { label: '组评分', selectors: ['select[name="useGroupScoring"]'], closest: '.world_entry_form_control' },
     { label: '自动化 ID', selectors: ['input[name="automationId"]'], closest: '.world_entry_form_control' },
     { label: '递归等级', selectors: ['input[name="delayUntilRecursionLevel"]'], closest: '.world_entry_form_control' },
-    { label: '条目正文编辑区', selectors: ['textarea[name="content"]'], closest: '.world_entry_form_control' },
+    { label: '正文编辑区（含不可递归 / 防止递归 / 延迟到递归 / 无视预算）', selectors: ['textarea[name="content"]'], closest: '.world_entry_form_control' },
     { label: '包含组', selectors: ['input[name="group"]'], closest: '.range-block-range' },
     { label: '组权重', selectors: ['input[name="groupWeight"]'], closest: '.range-block-range' },
     { label: '粘性 Sticky', selectors: ['input[name="sticky"]'], closest: '.range-block-range' },
@@ -317,9 +320,8 @@
     { label: '延迟 Delay', selectors: ['input[name="delay"]'], closest: '.range-block-range' },
     { label: '绑定角色或标签', selectors: ['select[name="characterFilter"]'], closest: '.range-block-range' },
     { label: '筛选生成触发器', selectors: ['select[name="triggers"]'], closest: '.range-block-range' },
-    { label: '递归控制（不可递归 / 防止递归 / 延迟到递归 / 无视预算）', selectors: ['input[name="excludeRecursion"]', 'input[name="preventRecursion"]', 'input[name="delay_until_recursion"]', 'input[name="ignoreBudget"]'], closest: '.checkbox' },
     { label: '概率与选择性开关（selective / useProbability / addMemo）', selectors: ['[name="WIEntryBottomControls"]'] },
-    { label: '深度 / 顺序 / 概率', selectors: ['.world_entry_edit .wi-enter-footer-text'] },
+    { label: '位置 / 深度 / 顺序 / 触发概率', selectors: ['div.world_entry_form_control.wi-enter-footer-text'] },
   ];
 
   const CURATED_GROUPS = {
@@ -641,7 +643,7 @@
         for (const sp of sps) { const st = normLabel(sp.textContent); if (st) return st; }
         let dt = '';
         for (const n of el.childNodes) if (n.nodeType === 3) dt += n.textContent;
-        return normLabel(dt) || normLabel(el.textContent) || normLabel(el.getAttribute('title'));
+        return normLabel(dt) || normLabel(el.textContent) || normLabel(el.getAttribute('title')) || i18nLabelOf(el);
       }
       case 'attrTitle': {
         const withTitle = el.matches('[title]') ? el : el.querySelector('[title]');
@@ -651,8 +653,21 @@
       }
       case 'header':
       default:
-        return normLabel(extractHeaderLabel(el.querySelector(group.header) || el));
+        return normLabel(extractHeaderLabel(el.querySelector(group.header) || el)) || i18nLabelOf(el);
     }
+  }
+
+  // i18n 文案兜底：静态 HTML 里按钮常常只有 data-i18n、没有文本，
+  // 运行时才注入。取属性原文，避免开面板第一眼看到空白行。
+  function i18nLabelOf(el) {
+    const nodes = [el].concat(Array.prototype.slice.call(el.querySelectorAll('[data-i18n]')));
+    for (const node of nodes) {
+      const raw = node.getAttribute && node.getAttribute('data-i18n');
+      if (!raw) continue;
+      const t = normLabel(raw.replace(/^\[[^\]]*\]/, ''));
+      if (t) return t;
+    }
+    return '';
   }
 
   function isValidCssSelector(selector) {
@@ -954,6 +969,8 @@
         for (let found of doc.querySelectorAll(sel)) {
           // 只命中里面的 <input>：真正的排版单元在祖先上（照 cocktail 的做法，按 name 定位再上溯）
           if (pg.closest) found = found.closest(pg.closest) || found;
+          // 分组级作用域：锚点必须落在 scope 内（如条目编辑器只认列表里的克隆，不碰模板）
+          if (group.scope && !(found.matches(group.scope) || found.closest(group.scope))) continue;
           if (els.indexOf(found) !== -1 || isSelf(found)) continue;
           if (isBackendHidden(found)) continue; // 当前后端用不到 → 不生成记录，免得面板里堆死选项
           els.push(found);
@@ -2379,9 +2396,34 @@
     return html;
   }
 
+  // 顶部过滤（不持久化：每次开面板回到全量，免得下次打开一脸空白）
+  let uiFilter = '';
+  let uiOnlyEnabled = false;
+  // 只切换可见性，不重建 DOM：输入法、光标、滚动都保住，也省掉每次按键一次全量扫描
+  function applyFilterToDom() {
+    const body = doc.getElementById('mc3-body');
+    if (!body) return;
+    const on = !!uiFilter || uiOnlyEnabled;
+    const cards = body.querySelectorAll('.mc3-card');
+    for (const card of cards) {
+      let visible = 0;
+      const rows = card.querySelectorAll('.mc3-row[data-key]');
+      for (const row of rows) {
+        let show = uiFilter ? String(row.textContent || '').toLowerCase().indexOf(uiFilter) !== -1 : true;
+        if (show && uiOnlyEnabled) show = !!settings.hidden[row.getAttribute('data-key')];
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      }
+      card.style.display = (!on || visible > 0) ? '' : 'none';
+    }
+  }
+
   function renderSortPanel() {
     const all = scanAll();
-    let html = '<div id="mc3-tools"><span class="mc3-tip">点击 + 号新建一个子分组</span></div>';
+    let html = '<div id="mc3-tools">' +
+      '<input id="mc3-filter" class="text_pole" type="search" placeholder="按名称筛选…" value="' + escHtml(uiFilter) + '" />' +
+      '<label class="mc3-tip" title="只显示当前已隐藏的项"><input id="mc3-only-enabled" type="checkbox"' + (uiOnlyEnabled ? ' checked' : '') + ' /> 仅看已启用</label>' +
+      '<span class="mc3-tip">点击 + 号新建一个子分组</span></div>';
 
     for (const group of GROUPS) {
       const recs = (all[group.id] || []).slice();
@@ -2445,6 +2487,9 @@
           body += '</div></div></div></div>';
         }
       }
+      if (recs.length === 0 && group.id === 'worldEntry') {
+        body += '<div class="mc3-row" style="opacity:.4;font-style:italic;justify-content:center;padding:10px;font-size:12px">打开世界书并载入至少一条条目后，这一页才会出现可调项</div>';
+      }
       body += '</div>';
 
       const headerExtra = supportsSg
@@ -2500,11 +2545,12 @@
     const scrollTop = body.scrollTop;
     const active = doc.activeElement;
     const focusSel = (active && body.contains(active)) ? (
-      active.getAttribute('data-key') !== null ? '[data-key="' + active.getAttribute('data-key').replace(/"/g, '\\"') + '"]'
+      active.id ? '#' + active.id : active.getAttribute('data-key') !== null ? '[data-key="' + active.getAttribute('data-key').replace(/"/g, '\\"') + '"]'
         : (active.getAttribute('data-action') !== null ? '[data-action="' + active.getAttribute('data-action').replace(/"/g, '\\"') + '"]' : null)
     ) : null;
     body.innerHTML = activeTab === 'settings' ? renderSettingsPanel() : renderSortPanel();
     body.scrollTop = scrollTop;
+    applyFilterToDom();
     if (focusSel) { const again = body.querySelector(focusSel); if (again && again.focus) again.focus(); }
   }
 
@@ -2527,6 +2573,9 @@
     (doc.documentElement || doc.body).appendChild(ov); // 挂到 html，规避主题祖先 transform/filter 致 fixed 偏移
     ov.addEventListener('click', (e) => { if (e.target === ov) closePopup(); });
     const popup = ov.querySelector('#mc3-popup');
+    popup.addEventListener('change', (e) => {
+      if (e.target && e.target.id === 'mc3-only-enabled') { uiOnlyEnabled = !!e.target.checked; applyFilterToDom(); }
+    });
     popup.addEventListener('click', onPopupClick);
     popup.addEventListener('pointerdown', onPopupPointerDown);
     popup.addEventListener('keydown', (e) => {
@@ -2537,6 +2586,12 @@
       }
     });
     popup.addEventListener('input', (e) => {
+      // 过滤框：只重画列表，不动输入框本身（renderPopup 会保留 #id 焦点与滚动）
+      if (e.target && e.target.id === 'mc3-filter') {
+        uiFilter = String(e.target.value || '').toLowerCase().trim();
+        applyFilterToDom();
+        return;
+      }
       const slider = e.target.closest('.mc3-rgb-slider');
       if (!slider) return;
       const channel = slider.getAttribute('data-channel');
@@ -3130,7 +3185,7 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M24',
+      version: 'M25',
       settings,
       groups: GROUPS,
       getGroup,
