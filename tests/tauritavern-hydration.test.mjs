@@ -24,20 +24,27 @@ test('openPopup 与 scanGroup 在执行时触发了面板水合', () => {
 });
 
 test('ensureExtensionsHydrated 运行时行为测试（挂载与未挂载 PanelRuntime）', () => {
-  // 提取 PANEL_SLOTS + ensureSlotHydrated + ensureExtensionsHydrated 三块源码在沙箱环境中验证
+  // 提取 SLOT_PROBES + missingSlots(负缓存) + ensureSlotHydrated + ensureExtensionsHydrated 在沙箱环境中验证
+  const probesMatch = code.match(/const SLOT_PROBES = \{[\s\S]*?\n  \};/);
+  const missingMatch = code.match(/const missingSlots = new Set\(\);/);
   const slotsMatch = code.match(/const PANEL_SLOTS = \{[\s\S]*?\n  \};/);
   const slotFnMatch = code.match(/function ensureSlotHydrated\s*\(slotId\)\s*\{[\s\S]*?\n  \}/);
   const fnMatch = code.match(/function ensureExtensionsHydrated\s*\(\)\s*\{[\s\S]*?\n  \}/);
+  assert.ok(probesMatch, '应能匹配到 SLOT_PROBES 定义');
+  assert.ok(missingMatch, '应能匹配到 missingSlots 负缓存定义');
   assert.ok(slotsMatch, '应能匹配到 PANEL_SLOTS 定义');
   assert.ok(slotFnMatch, '应能匹配到 ensureSlotHydrated 函数定义');
   assert.ok(fnMatch, '应能匹配到 ensureExtensionsHydrated 函数定义');
 
-  const fnSource = [slotsMatch[0], slotFnMatch[0], fnMatch[0]].join('\n');
+  const fnSource = [probesMatch[0], missingMatch[0], slotsMatch[0], slotFnMatch[0], fnMatch[0]].join('\n');
+  // 探针查询用的 doc：一律返回 null 表示「尚未接回文档」，逼出真正的 setVisible/reconcile 分支
+  const emptyDoc = { querySelector: () => null };
 
   // 1. 未挂载 __TAURITAVERN_PANEL_RUNTIME__（如纯网页版 SillyTavern）
   {
     const sandbox = {
       win: {},
+      doc: emptyDoc,
       console: { warn: () => {} }
     };
     vm.createContext(sandbox);
@@ -55,6 +62,7 @@ test('ensureExtensionsHydrated 运行时行为测试（挂载与未挂载 PanelR
           reconcile: () => { calls.push(['reconcile']); }
         }
       },
+      doc: emptyDoc,
       console: { warn: () => {} }
     };
     vm.createContext(sandbox);
@@ -76,6 +84,7 @@ test('ensureExtensionsHydrated 运行时行为测试（挂载与未挂载 PanelR
           reconcile: () => { throw new Error('reconcile failed'); }
         }
       },
+      doc: emptyDoc,
       console: { warn: () => { warned = true; } }
     };
     vm.createContext(sandbox);

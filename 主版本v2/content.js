@@ -1,4 +1,4 @@
-// version 1018.1.0
+// version 1018.2.0
 
 (function () {
   'use strict';
@@ -150,7 +150,8 @@
     { label: 'Kobold 预设栏', selectors: ['#kobold_api-presets'] },
     { label: '响应长度与上下文', selectors: ['#amount_gen_block', '#max_context_block', '#prompt_cost_block'] },
     { label: 'AI 模块', selectors: ['#ai_module_block_novel'] },
-    { label: '上下文长度及备选回复', selectors: presetRange('#range_block_openai > div:nth-child(', 1, 4, ')').concat(['#range_block_novel']) },
+    { label: '上下文长度及备选回复', selectors: presetRange('#range_block_openai > div:nth-child(', 1, 4, ')') },
+    { label: 'NovelAI 采样栏', selectors: ['#range_block_novel'] },
     { label: '可调参数', selectors: presetRange('#range_block_openai > div:nth-child(', 11, 18, ')') },
     { label: '提示词格式相关', selectors: [
       '#range_block_openai > div.inline-drawer.m-t-1.wide100p',
@@ -256,11 +257,10 @@
     { label: '标题栏', selectors: ['#WorldInfoheader'] },
     { label: '世界书多选器', selectors: ['#WIMultiSelector'] },
     { label: '全局激活设置', selectors: ['#wiTopBlock > div:nth-child(2)'] },
-    { label: '条目管理（新建/选择）', selectors: ['#world_import_file', '#world_create_button', '#world_editor_select'] },
+    { label: '条目管理（新建/选择）', selectors: ['#world_popup_new', '#world_import_file', '#world_create_button', '#world_editor_select'] },
     { label: '条目管理（导入/导出/改名/复制/删除）', selectors: ['#world_import_button', '#world_popup_export', '#world_popup_name_button', '#world_duplicate', '#world_popup_delete'] },
-    { label: '新建条目与批量展开/收起', selectors: ['#world_popup_new', '#OpenAllWIEntries', '#CloseAllWIEntries'] },
     { label: '搜索与排序', selectors: ['#world_info_search', '#world_info_sort_order', '#world_apply_current_sorting'] },
-    { label: '维护按钮（回填/刷新/分页）', selectors: ['#world_backfill_memos', '#world_refresh', '#world_info_pagination'] },
+    { label: '列表工具（展开/收起/回填/刷新/分页）', selectors: ['#OpenAllWIEntries', '#CloseAllWIEntries', '#world_backfill_memos', '#world_refresh', '#world_info_pagination'] },
     { label: '条目列表', selectors: ['#world_popup_entries_list'] },
   ];
   // 高级格式化：三栏模板编辑器
@@ -645,15 +645,34 @@
     advancedFormatting: 'panel:AdvancedFormatting',
   };
 
+  // 每个 slot「已接回文档」的判定探针：命中即认为无需再次 reconcile。
+  // 宿主 reconcile() 是同步全量重排，一次 applyAll 里连调 5 次在真实页面上肉眼可见地卡。
+  const SLOT_PROBES = {
+    'panel:left-nav-panel': '#openai_settings',
+    'panel:user-settings-block': '#UI-Theme-Block',
+    'panel:WorldInfo': '#wi-holder',
+    'panel:AdvancedFormatting': '#AdvancedFormatting .flex-container.spaceEvenly',
+    'tt:gate:rm_extensions_block:extension_containers': '#extensions_settings .extension_container:not(:empty), #extensions_settings2 .extension_container:not(:empty)',
+  };
+
+  // 宿主 setVisible 对不存在的 slot 直接抛错；没这个负缓存的话每次 applyAll 都会白试一遍并刷 warn
+  const missingSlots = new Set();
+
   function ensureSlotHydrated(slotId) {
-    if (!slotId) return false;
+    if (!slotId || missingSlots.has(slotId)) return false;
+    const probe = SLOT_PROBES[slotId];
+    if (probe) {
+      try { if (doc.querySelector(probe)) return true; } catch (_) {}
+    }
     try {
       const mgr = win.__TAURITAVERN_PANEL_RUNTIME__;
       if (!mgr || typeof mgr.setVisible !== 'function' || typeof mgr.reconcile !== 'function') return false;
-      mgr.setVisible(slotId, true);
+      const ok = mgr.setVisible(slotId, true);
+      if (ok === false) { missingSlots.add(slotId); return false; }
       mgr.reconcile();
       return true;
     } catch (e) {
+      missingSlots.add(slotId); // 该 slot 在本宿主上不存在/非手动模式，后续不再尝试
       console.warn('[菜单精简器] 水合面板失败喵：', slotId, e);
       return false;
     }
@@ -856,6 +875,18 @@
   }
 
   // curated 面板扫描（预设/用户设置，按组打包隐藏，不排序）
+  // script.js changeMainAPI() 用 $(el).css('display','none') 直接写**内联** style 来隐藏非当前后端的
+  // 预设栏 / 采样设置 / 采样范围；而抽屉收起是 class 控制（closedDrawer）。
+  // 所以「内联 display:none」恰好只命中「当前后端用不到的区块」，不会误伤「面板没打开」。
+  const isBackendHidden = (el) => {
+    let cur = el;
+    for (let i = 0; cur && cur.nodeType === 1 && i < 6; i++) {
+      if (cur.style && cur.style.display === 'none') return true;
+      cur = cur.parentElement;
+    }
+    return false;
+  };
+
   function scanCurated(group) {
     // 预设菜单（left-nav-panel）与用户设置（user-settings-block）在 TauriTavern 里会被整体停放，
     // 不水合则 querySelectorAll 全空，整组静默消失。
@@ -867,7 +898,9 @@
       const els = [];
       for (const sel of pg.selectors) {
         for (const found of doc.querySelectorAll(sel)) {
-          if (els.indexOf(found) === -1 && !isSelf(found)) els.push(found);
+          if (els.indexOf(found) !== -1 || isSelf(found)) continue;
+          if (isBackendHidden(found)) continue; // 当前后端用不到 → 不生成记录，免得面板里堆死选项
+          els.push(found);
         }
       }
       if (!els.length) continue;
@@ -976,6 +1009,12 @@
   // ─── §6  APPLIERS ────────────────────────────────────────────────────────────
 
   let suppressObserver = false; // 程序性 DOM 搬运期间抑制 observer，防回环
+  // 置位的同时挂一个看门狗：正常路径会在 setTimeout(0) 里复位，一旦中途抛错，
+  // 100ms 后也会自动复位——旧代码是裸标志，一次异常就永久静默掉全部 observer 回调。
+  function setSuppress() {
+    suppressObserver = true;
+    win.setTimeout(() => { suppressObserver = false; }, 100);
+  }
   let applyTimer = null;
 
   // 对每个 record 的全副本做 (el, unit, rec) 遍历（applyOrder/applyHides/clearGroup 共用）
@@ -1132,7 +1171,11 @@
       const tc = target === 1 ? col1 : col0;
       const unitsToMove = (r.units && r.units.length) ? r.units : (r.unit ? [r.unit] : []);
       for (const un of unitsToMove) {
-        if (un && un.parentNode !== tc) { suppressObserver = true; tc.appendChild(un); moved = true; }
+        if (un && un.parentNode !== tc) {
+          setSuppress();
+          try { tc.appendChild(un); } catch (e) { suppressObserver = false; throw e; }
+          moved = true;
+        }
       }
     }
     col1.style.display = single ? 'none' : ''; // 单栏时右栏收起，左栏占满
@@ -1241,14 +1284,14 @@
     if (settings.enabled && settings.isolateCustomCss) {
       const charBlock = doc.querySelector('div[name="CharacterHandlingToggles"]');
       if (charBlock && charBlock.parentNode && cssBlock.nextElementSibling !== charBlock) {
-        suppressObserver = true;
+        setSuppress();
         charBlock.parentNode.insertBefore(cssBlock, charBlock);
         win.setTimeout(() => { suppressObserver = false; }, 0);
       }
     } else {
       const miscBlock = doc.querySelector('div[name="MiscellaneousToggles"]');
       if (miscBlock && miscBlock.parentNode && cssBlock.previousElementSibling !== miscBlock) {
-        suppressObserver = true;
+        setSuppress();
         miscBlock.parentNode.insertBefore(cssBlock, miscBlock.nextSibling);
         win.setTimeout(() => { suppressObserver = false; }, 0);
       }
@@ -1375,10 +1418,10 @@
         hint.style.order = '-2';
         if (extra) extra.style.order = '-1';
         if (hint.parentNode === container && container.firstChild !== hint) {
-          suppressObserver = true; container.insertBefore(hint, container.firstChild); moved = true;
+          setSuppress(); container.insertBefore(hint, container.firstChild); moved = true;
         }
         if (extra && extra.parentNode === container && hint.nextSibling !== extra) {
-          suppressObserver = true; container.insertBefore(extra, hint.nextSibling); moved = true;
+          setSuppress(); container.insertBefore(extra, hint.nextSibling); moved = true;
         }
       }
 
@@ -1398,26 +1441,26 @@
           // 收纳：置于 extra 内。保留一份主副本，其余多余副本 remove（对重复注入元素的防御）。
           // extra 可能在清理模式下缺失（无收纳区）→ 与 v1 一致：仅在 extra 存在时搬入。
           let mainBtn = (extra && matchedBtns.find((b) => b.parentNode === extra)) || matchedBtns[0];
-          if (extra && mainBtn.parentNode !== extra) { suppressObserver = true; extra.appendChild(mainBtn); moved = true; }
+          if (extra && mainBtn.parentNode !== extra) { setSuppress(); extra.appendChild(mainBtn); moved = true; }
           mainBtn.classList.toggle('mc3-hidden', isHidden);
           mainBtn.style.order = restore ? '' : (slot !== undefined ? String(slot) : '');
           if (!isHidden && mainBtn.style.display !== 'none') visibleExtraChildrenCount++;
           for (const b of matchedBtns) {
-            if (b !== mainBtn) { suppressObserver = true; b.remove(); moved = true; }
+            if (b !== mainBtn) { setSuppress(); b.remove(); moved = true; }
           }
         } else {
           // 外显：置于 container 直接子级。抽屉内的重注入副本交给 CSS 抑制规则处理（无需写节点）。
           let mainBtn = matchedBtns.find((b) => b.parentNode === container) || matchedBtns[0];
-          if (mainBtn.parentNode !== container) { suppressObserver = true; container.appendChild(mainBtn); moved = true; }
+          if (mainBtn.parentNode !== container) { setSuppress(); container.appendChild(mainBtn); moved = true; }
           mainBtn.classList.remove('mc3-hidden');
           mainBtn.style.order = restore ? '' : (slot !== undefined ? String(slot) : '');
           for (const b of matchedBtns) {
             if (b === mainBtn) continue;
             if (b.parentNode === extra) {
               // 抽屉内副本：由 mc3-mes-suppress CSS 隐藏，不动其属性 → 不触发第三方 observer 乒乓
-              if (restore) { suppressObserver = true; b.remove(); moved = true; }
+              if (restore) { setSuppress(); b.remove(); moved = true; }
             } else {
-              suppressObserver = true; b.remove(); moved = true;
+              setSuppress(); b.remove(); moved = true;
             }
           }
         }
@@ -1498,7 +1541,7 @@
         saveSettings();
         applyAll();
       });
-      suppressObserver = true;
+      setSuppress();
       bar.insertBefore(toggleBtn, bar.firstChild);
       win.setTimeout(() => { suppressObserver = false; }, 0);
     }
@@ -1545,15 +1588,20 @@
       const col0 = doc.querySelector('#extensions_settings');
       const col1 = doc.querySelector('#extensions_settings2');
       if (col0 && col1) {
+        let restored = false;
         forEachElUnit(records, (el, unit, r) => {
           // 没有快照就不动：否则新装用户的原生两栏会被一股脑搬到左栏
           const native = settings.nativeColumn ? settings.nativeColumn[r.key] : undefined;
           if (native === undefined) return;
           const target = native === 1 ? col1 : col0;
           const u = unit || el;
-          if (u && u.parentNode !== target) target.appendChild(u);
+          if (!u || u.parentNode === target) return;
+          // 插到同栏里其它容器之前，尽量保住原有先后顺序（appendChild 会把顺序打乱）
+          const next = [...target.children].find((c) => c !== u && !/^mc3-/.test(c.id || ''));
+          target.insertBefore(u, next || null);
+          restored = true;
         });
-        col1.style.display = '';
+        if (restored) col1.style.display = '';
       }
     }
   }
@@ -2979,7 +3027,7 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M21',
+      version: 'M22',
       settings,
       groups: GROUPS,
       getGroup,
