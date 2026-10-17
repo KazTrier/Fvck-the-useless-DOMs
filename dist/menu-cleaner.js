@@ -1,4 +1,4 @@
-// version 1018.2.0
+// version 1019.0.0
 
 (function () {
   'use strict';
@@ -92,6 +92,12 @@
       observe: ['#wi-holder', '#WorldInfo'],
     },
     {
+      id: 'worldEntry', name: '世界书·条目编辑器',
+      button: '#WI-SP-button',
+      curated: true,
+      observe: ['#world_popup', '#world_popup_entries_list', '#entry_edit_template'],
+    },
+    {
       id: 'advancedFormatting', name: '高级格式化',
       button: '#advanced-formatting-button',
       curated: true,
@@ -140,7 +146,9 @@
     for (let n = a; n <= b; n++) out.push(prefix + n + suffix);
     return out;
   }
-  // 预设面板完整覆盖：分别覆盖「预设切换栏 / 公共生成设置 / 各后端采样栏 / OpenAI 高级区 / 提示词管理器」
+  // 预设面板完整覆盖：分别覆盖「预设切换栏 / 公共生成设置 / 各后端采样栏 / OpenAI 高级区」
+  // 注意别再加 #completion_prompt_manager：它是「预设条目」那个 range-block 的子节点，
+  // 两个开关打同一块区域，用户会以为坏了。
   // 旧版只覆盖 #range_block_openai 与 #openai_settings，其余整片区域（含 Novel/Kobold/TextGen 采样栏）在
   // TauriTavern 停放后完全没有可管理项，表现为「预设面板能隐藏的东西变少了」。
   const PRESET_GROUPS = [
@@ -164,7 +172,6 @@
     { label: 'Kobold 采样设置', selectors: ['#kobold_api-settings'] },
     { label: 'NovelAI 采样设置', selectors: ['#novel_api-settings'] },
     { label: 'Text Completion 采样设置', selectors: ['#textgenerationwebui_api-settings'] },
-    { label: '提示词管理器', selectors: ['#completion_prompt_manager'] },
   ];
 
   // 用户设置伪抽屉，现在用精确语义进行匹配而不是nth-child
@@ -270,10 +277,37 @@
     { label: '系统提示词', selectors: ['#SystemPromptColumn'] },
   ];
 
+  // 世界书条目编辑器（.world_entry_edit，模板 #entry_edit_template + 每个条目一份克隆）。
+  // 锚点一律用 name 属性再上溯到排版容器，不用 nth-child —— 酒馆改版时 nth-child 会静默错位。
+  // 拆分粒度参考 cocktail 的 modules/worldinfo-panel-slim.js
+  const WORLD_ENTRY_GROUPS = [
+    { label: '主关键字与逻辑', selectors: ['.world_entry_form_control.keyprimary', 'select[name="entryLogicType"]'], closest: '.world_entry_form_control' },
+    { label: '可选过滤器', selectors: ['.world_entry_form_control.keysecondary'] },
+    { label: '出口名 Outlet', selectors: ['input[name="outletName"]'], closest: '.world_entry_form_control' },
+    { label: '扫描深度', selectors: ['input[name="scanDepth"]'], closest: '.world_entry_form_control' },
+    { label: '区分大小写', selectors: ['select[name="caseSensitive"]'], closest: '.world_entry_form_control' },
+    { label: '完整单词匹配', selectors: ['select[name="matchWholeWords"]'], closest: '.world_entry_form_control' },
+    { label: '组评分', selectors: ['select[name="useGroupScoring"]'], closest: '.world_entry_form_control' },
+    { label: '自动化 ID', selectors: ['input[name="automationId"]'], closest: '.world_entry_form_control' },
+    { label: '递归等级', selectors: ['input[name="delayUntilRecursionLevel"]'], closest: '.world_entry_form_control' },
+    { label: '条目正文编辑区', selectors: ['textarea[name="content"]'], closest: '.world_entry_form_control' },
+    { label: '包含组', selectors: ['input[name="group"]'], closest: '.range-block-range' },
+    { label: '组权重', selectors: ['input[name="groupWeight"]'], closest: '.range-block-range' },
+    { label: '粘性 Sticky', selectors: ['input[name="sticky"]'], closest: '.range-block-range' },
+    { label: '冷却 Cooldown', selectors: ['input[name="cooldown"]'], closest: '.range-block-range' },
+    { label: '延迟 Delay', selectors: ['input[name="delay"]'], closest: '.range-block-range' },
+    { label: '绑定角色或标签', selectors: ['select[name="characterFilter"]'], closest: '.range-block-range' },
+    { label: '筛选生成触发器', selectors: ['select[name="triggers"]'], closest: '.range-block-range' },
+    { label: '递归控制（不可递归 / 防止递归 / 延迟到递归 / 无视预算）', selectors: ['input[name="excludeRecursion"]', 'input[name="preventRecursion"]', 'input[name="delay_until_recursion"]', 'input[name="ignoreBudget"]'], closest: '.checkbox' },
+    { label: '概率与选择性开关（selective / useProbability / addMemo）', selectors: ['[name="WIEntryBottomControls"]'] },
+    { label: '深度 / 顺序 / 概率', selectors: ['.world_entry_edit .wi-enter-footer-text'] },
+  ];
+
   const CURATED_GROUPS = {
     presetSettings: PRESET_GROUPS,
     userSettings: USER_SETTINGS_GROUPS,
     worldInfo: WORLD_INFO_GROUPS,
+    worldEntry: WORLD_ENTRY_GROUPS,
     advancedFormatting: ADVANCED_FORMATTING_GROUPS,
   };
 
@@ -642,6 +676,7 @@
     userSettings: 'panel:user-settings-block',
     presetSettings: 'panel:left-nav-panel',
     worldInfo: 'panel:WorldInfo',
+    worldEntry: 'panel:WorldInfo',
     advancedFormatting: 'panel:AdvancedFormatting',
   };
 
@@ -897,7 +932,9 @@
       if (pg.noCuratedRecord || !pg.selectors) continue;
       const els = [];
       for (const sel of pg.selectors) {
-        for (const found of doc.querySelectorAll(sel)) {
+        for (let found of doc.querySelectorAll(sel)) {
+          // 只命中里面的 <input>：真正的排版单元在祖先上（照 cocktail 的做法，按 name 定位再上溯）
+          if (pg.closest) found = found.closest(pg.closest) || found;
           if (els.indexOf(found) !== -1 || isSelf(found)) continue;
           if (isBackendHidden(found)) continue; // 当前后端用不到 → 不生成记录，免得面板里堆死选项
           els.push(found);
@@ -1620,6 +1657,7 @@
       else { clearGroup(group, recs); clearPseudoSubgroups(group); }
     }
     applyQrPanelFold();
+    compactEmptyRows();
     return all;
   }
 
@@ -1643,6 +1681,42 @@
           mainObs.observe(el, { childList: true, subtree: true });
           if (cdActive && cdObs) cdObs.observe(el, { characterData: true, subtree: true });
         }
+      }
+    }
+  }
+
+  // 隐藏后留下的空壳：一整行控件全被藏掉时，把这一行也收起来，否则页面上会剩一排空白与分割线。
+  // 只在这些「行容器」上做，范围收窄以免误伤别的面板。（思路同 cocktail 的 applyCompactVisibility）
+  const COMPACT_ROW_SELECTORS = [
+    '[name="keywordsAndLogicBlock"] > *',
+    '[name="perEntryOverridesBlock"] > *',
+    '[name="keywordsAndLogicBlock"]',
+    '[name="perEntryOverridesBlock"]',
+    '[name="WIEntryBottomControls"] > *',
+    '#wiTopBlock > *',
+    '#world_popup > .flex-container > *',
+  ];
+  // 返回 null 表示「这行本来就没控件（纯标题/分割线），不归我们管」。
+  // 注意从 c 往上走时要停在 row 之前：否则 row 自己上一轮的 mc3-gone 会被当成
+  // 「里面的控件都藏了」，于是永远自我维持，恢复分组后行也不回来。
+  function isRowEmpty(row) {
+    const controls = row.querySelectorAll('input, select, textarea, button, a');
+    if (!controls.length) return null;
+    for (const c of controls) {
+      let hidden = false;
+      for (let n = c; n && n !== row; n = n.parentElement) {
+        if (n.classList && (n.classList.contains('mc3-hidden') || n.classList.contains('mc3-gone'))) { hidden = true; break; }
+      }
+      if (!hidden) return false;
+    }
+    return true;
+  }
+  function compactEmptyRows() {
+    for (const sel of COMPACT_ROW_SELECTORS) {
+      for (const row of doc.querySelectorAll(sel)) {
+        const empty = isRowEmpty(row);
+        if (empty === null) continue;
+        row.classList.toggle('mc3-gone', empty);
       }
     }
   }
@@ -3027,14 +3101,14 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M22',
+      version: 'M23',
       settings,
       groups: GROUPS,
       getGroup,
       scanGroup, scanMesButtons, scanCurated, scanAll,
       applyAll, applyMesButtons, clearMesButtons,
       ensureContainersObserved,
-      ensureSlotHydrated, hydrateAllPanels, PANEL_SLOTS,      renderMesButtonsCard, applyPseudoSubgroups, applyCustomSelectors,
+      ensureSlotHydrated, hydrateAllPanels, PANEL_SLOTS, WORLD_ENTRY_GROUPS, compactEmptyRows,      renderMesButtonsCard, applyPseudoSubgroups, applyCustomSelectors,
       addCustomSelector: (sel, label) => CustomSelectors.add(sel, label),
       deleteCustomSelector: (id) => CustomSelectors.remove(id),
       setColumnMode,
