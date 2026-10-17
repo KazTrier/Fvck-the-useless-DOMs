@@ -16,17 +16,23 @@ test('ensureExtensionsHydrated 能安全识别 __TAURITAVERN_PANEL_RUNTIME__ 并
   assert.match(code, /tt:gate:rm_extensions_block:extension_containers/);
 });
 
-test('openPopup 与 scanGroup 在执行时调用了 ensureExtensionsHydrated', () => {
-  assert.match(code, /function openPopup[\s\S]*?ensureExtensionsHydrated\(\)/);
-  assert.match(code, /function scanGroup[\s\S]*?extensionsSettings[\s\S]*?ensureExtensionsHydrated\(\)/);
+test('openPopup 与 scanGroup 在执行时触发了面板水合', () => {
+  // v1017 起 openPopup 一次性水合全部面板，scanGroup/scanCurated 按 PANEL_SLOTS 分派
+  assert.match(code, /function openPopup\s*\(\)\s*\{[^}]*hydrateAllPanels\(\)/);
+  assert.match(code, /function scanGroup\s*\(group\)\s*\{[\s\S]*?PANEL_SLOTS\[group\.id\][\s\S]*?ensureSlotHydrated/);
+  assert.match(code, /function scanCurated\s*\(group\)\s*\{[\s\S]*?PANEL_SLOTS\[group\.id\][\s\S]*?ensureSlotHydrated/);
 });
 
 test('ensureExtensionsHydrated 运行时行为测试（挂载与未挂载 PanelRuntime）', () => {
-  // 提取 ensureExtensionsHydrated 的源码在沙箱环境中验证
+  // 提取 PANEL_SLOTS + ensureSlotHydrated + ensureExtensionsHydrated 三块源码在沙箱环境中验证
+  const slotsMatch = code.match(/const PANEL_SLOTS = \{[\s\S]*?\n  \};/);
+  const slotFnMatch = code.match(/function ensureSlotHydrated\s*\(slotId\)\s*\{[\s\S]*?\n  \}/);
   const fnMatch = code.match(/function ensureExtensionsHydrated\s*\(\)\s*\{[\s\S]*?\n  \}/);
+  assert.ok(slotsMatch, '应能匹配到 PANEL_SLOTS 定义');
+  assert.ok(slotFnMatch, '应能匹配到 ensureSlotHydrated 函数定义');
   assert.ok(fnMatch, '应能匹配到 ensureExtensionsHydrated 函数定义');
 
-  const fnSource = fnMatch[0];
+  const fnSource = [slotsMatch[0], slotFnMatch[0], fnMatch[0]].join('\n');
 
   // 1. 未挂载 __TAURITAVERN_PANEL_RUNTIME__（如纯网页版 SillyTavern）
   {
