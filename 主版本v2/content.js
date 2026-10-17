@@ -1,4 +1,4 @@
-// version 1018.0.0
+// version 1018.1.0
 
 (function () {
   'use strict';
@@ -97,18 +97,6 @@
       curated: true,
       observe: ['#AdvancedFormatting'],
     },
-    {
-      id: 'backgrounds', name: '背景面板',
-      button: '#backgrounds-button',
-      curated: true,
-      observe: ['#bg_tabs'],
-    },
-    {
-      id: 'charPanel', name: '角色面板',
-      button: '#rightNavHolder',
-      curated: true,
-      observe: ['#right-nav-panel'],
-    },
   ];
 
   // 支持子分组的分组
@@ -152,8 +140,17 @@
     for (let n = a; n <= b; n++) out.push(prefix + n + suffix);
     return out;
   }
+  // 预设面板完整覆盖：分别覆盖「预设切换栏 / 公共生成设置 / 各后端采样栏 / OpenAI 高级区 / 提示词管理器」
+  // 旧版只覆盖 #range_block_openai 与 #openai_settings，其余整片区域（含 Novel/Kobold/TextGen 采样栏）在
+  // TauriTavern 停放后完全没有可管理项，表现为「预设面板能隐藏的东西变少了」。
   const PRESET_GROUPS = [
-    { label: '上下文长度及备选回复', selectors: presetRange('#range_block_openai > div:nth-child(', 1, 4, ')') },
+    { label: 'Chat Completion 预设栏', selectors: ['#openai_api-presets'] },
+    { label: 'Text Completion 预设栏', selectors: ['#textgenerationwebui_api-presets'] },
+    { label: 'NovelAI 预设栏', selectors: ['#novel_api-presets'] },
+    { label: 'Kobold 预设栏', selectors: ['#kobold_api-presets'] },
+    { label: '响应长度与上下文', selectors: ['#amount_gen_block', '#max_context_block', '#prompt_cost_block'] },
+    { label: 'AI 模块', selectors: ['#ai_module_block_novel'] },
+    { label: '上下文长度及备选回复', selectors: presetRange('#range_block_openai > div:nth-child(', 1, 4, ')').concat(['#range_block_novel']) },
     { label: '可调参数', selectors: presetRange('#range_block_openai > div:nth-child(', 11, 18, ')') },
     { label: '提示词格式相关', selectors: [
       '#range_block_openai > div.inline-drawer.m-t-1.wide100p',
@@ -161,8 +158,12 @@
       '#openai_settings > div:nth-child(1) > div:nth-child(1)',
       '#openai_settings > div:nth-child(1) > div.inline-drawer.wide100p.flexFlowColumn.marginBot10',
     ] },
-    { label: '复选框和下拉菜单', selectors: presetRange('#openai_settings > div:nth-child(1) > div:nth-child(', 3, 13, ')').concat(['#openai_settings > div.range-block.m-t-1']) },
+    { label: '复选框和下拉菜单', selectors: presetRange('#openai_settings > div:nth-child(1) > div:nth-child(', 3, 15, ')').concat(['#openai_settings > div.range-block.m-t-1']) },
     { label: '预设条目(你不会连这个都要隐藏吧？)', selectors: ['#openai_settings > div.range-block.m-b-1'] },
+    { label: 'Kobold 采样设置', selectors: ['#kobold_api-settings'] },
+    { label: 'NovelAI 采样设置', selectors: ['#novel_api-settings'] },
+    { label: 'Text Completion 采样设置', selectors: ['#textgenerationwebui_api-settings'] },
+    { label: '提示词管理器', selectors: ['#completion_prompt_manager'] },
   ];
 
   // 用户设置伪抽屉，现在用精确语义进行匹配而不是nth-child
@@ -250,12 +251,16 @@
     return USER_SETTINGS_GROUPS;
   }
 
-  // 世界书：多选器 / 全局激活开关 / 条目工具栏两行 / 条目列表
+  // 世界书：按真实工具栏逐按钮拆分（锚点取自 index.html 的静态 id，不用 nth-child）
   const WORLD_INFO_GROUPS = [
+    { label: '标题栏', selectors: ['#WorldInfoheader'] },
     { label: '世界书多选器', selectors: ['#WIMultiSelector'] },
     { label: '全局激活设置', selectors: ['#wiTopBlock > div:nth-child(2)'] },
-    { label: '条目工具栏（新建/选择）', selectors: ['#world_popup > .flex-container.alignitemscenter:nth-child(2)'] },
-    { label: '条目工具栏（搜索/排序）', selectors: ['#world_popup > .flex-container.alignitemscenter:nth-child(3)'] },
+    { label: '条目管理（新建/选择）', selectors: ['#world_import_file', '#world_create_button', '#world_editor_select'] },
+    { label: '条目管理（导入/导出/改名/复制/删除）', selectors: ['#world_import_button', '#world_popup_export', '#world_popup_name_button', '#world_duplicate', '#world_popup_delete'] },
+    { label: '新建条目与批量展开/收起', selectors: ['#world_popup_new', '#OpenAllWIEntries', '#CloseAllWIEntries'] },
+    { label: '搜索与排序', selectors: ['#world_info_search', '#world_info_sort_order', '#world_apply_current_sorting'] },
+    { label: '维护按钮（回填/刷新/分页）', selectors: ['#world_backfill_memos', '#world_refresh', '#world_info_pagination'] },
     { label: '条目列表', selectors: ['#world_popup_entries_list'] },
   ];
   // 高级格式化：三栏模板编辑器
@@ -264,27 +269,12 @@
     { label: 'Instruct 模板', selectors: ['#InstructSettingsColumn'] },
     { label: '系统提示词', selectors: ['#SystemPromptColumn'] },
   ];
-  // 背景：标签栏 + 两个面板
-  const BACKGROUND_GROUPS = [
-    { label: '标签栏', selectors: ['#bg_tabs > ul.bg_tabs_list'] },
-    { label: '全局背景', selectors: ['#bg_global_tab'] },
-    { label: '聊天背景', selectors: ['#bg_chat_tab'] },
-  ];
-  // 角色面板：左栏四个区块（本栏不被宿主停放，始终在文档里）
-  const CHAR_PANEL_GROUPS = [
-    { label: '新建角色', selectors: ['#rm_ch_create_block'] },
-    { label: '群聊控制', selectors: ['#rm_group_chats_block'] },
-    { label: '角色导入', selectors: ['#rm_character_import'] },
-    { label: '角色列表', selectors: ['#rm_characters_block'] },
-  ];
 
   const CURATED_GROUPS = {
     presetSettings: PRESET_GROUPS,
     userSettings: USER_SETTINGS_GROUPS,
     worldInfo: WORLD_INFO_GROUPS,
     advancedFormatting: ADVANCED_FORMATTING_GROUPS,
-    backgrounds: BACKGROUND_GROUPS,
-    charPanel: CHAR_PANEL_GROUPS,
   };
 
   // 默认隐藏的垃圾元素
@@ -653,7 +643,6 @@
     presetSettings: 'panel:left-nav-panel',
     worldInfo: 'panel:WorldInfo',
     advancedFormatting: 'panel:AdvancedFormatting',
-    backgrounds: 'panel:Backgrounds',
   };
 
   function ensureSlotHydrated(slotId) {
@@ -2990,7 +2979,7 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M20',
+      version: 'M21',
       settings,
       groups: GROUPS,
       getGroup,

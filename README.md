@@ -8,11 +8,10 @@
 
 - 测试按钮和扩展面板下`已弃用的API`部分默认隐藏
 - 左下菜单，魔棒，顶栏，扩展面板可隐藏和重排序，扩展面板可切换单双栏
-- 预设和用户设置区域可分块隐藏与可选折叠
-- **世界书面板**可分块隐藏（多选器 / 全局激活设置 / 条目工具栏 / 条目列表）
+- 预设面板**全区域**可分块隐藏（预设切换栏 ×4、响应长度与上下文、AI 模块、各后端采样栏、OpenAI 高级区、提示词管理器）
+- 用户设置区域可分块隐藏与可选折叠
+- **世界书面板**按真实工具栏逐块隐藏（标题栏 / 多选器 / 全局激活 / 条目管理 ×2 / 批量展开收起 / 搜索排序 / 维护按钮 / 条目列表）
 - **高级格式化**三栏（上下文模板 / Instruct / 系统提示词）可分块隐藏
-- **背景面板**（标签栏 / 全局背景 / 聊天背景）可分块隐藏
-- **角色面板**（新建角色 / 群聊控制 / 角色导入 / 角色列表）可分块隐藏
 - QR区域可隐藏按钮与折叠
 - 以及隐藏其他一切你不想看见的东西
 
@@ -37,13 +36,18 @@ TauriTavern 有「Panel Runtime」档位（设置项 `tauritavern-settings.panel
 | 用户设置扫不到 | `#user-settings-block-content` | `panel:user-settings-block` |
 | 世界书面板扫不到 | `#wi-holder` | `panel:WorldInfo` |
 | 高级格式化扫不到 | `#AdvancedFormatting .flex-container.spaceEvenly` | `panel:AdvancedFormatting` |
-| 背景面板扫不到 | `#bg_tabs` | `panel:Backgrounds` |
 | 扩展设置扫不到 | 各 `.extension_container` 的子节点 | `tt:gate:rm_extensions_block:extension_containers` |
 
 本版在扫描前会自动调用宿主的 `__TAURITAVERN_PANEL_RUNTIME__.setVisible(slot, true)` + `reconcile()` 把节点接回来，
 接回后立刻复位，抽屉不会自己弹开。如果仍有板块缺失，**先手动点开一次那个抽屉**再打开管理面板即可。
 
 ## 更新记录
+
+### 1018.1.0 / M21
+
+- 预设面板补齐全区域覆盖：`#respective-presets-block` 四个预设切换栏、`#common-gen-settings-block`（响应长度 / 上下文 / 提示词花费）、`#ai_module_block_novel`、`#range_block_novel`、`#kobold_api-settings` / `#novel_api-settings` / `#textgenerationwebui_api-settings`、`#completion_prompt_manager` 全部纳入；OpenAI 高级区区间由 `3..13` 扩到真实末尾 `3..15`（补回 Verbosity、Assistant Prefill）
+- 世界书面板由 5 组细化到 9 组，锚点从 nth-child 换成真实静态 id（`#world_create_button`、`#world_popup_export`、`#world_info_sort_order`、`#world_backfill_memos` …）
+- 移除「背景面板」「角色面板」两个分组及其停放 slot
 
 ### 1018.0.0 / M20
 
