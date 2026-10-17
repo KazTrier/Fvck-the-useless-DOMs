@@ -1,4 +1,4 @@
-// version 1019.0.0
+// version 1020.0.0
 
 (function () {
   'use strict';
@@ -260,15 +260,34 @@
   }
 
   // 世界书：按真实工具栏逐按钮拆分（锚点取自 index.html 的静态 id，不用 nth-child）
+  // 世界书面板（#wi-holder）：按功能区拆，锚点尽量用 id；滑块类控件命中 input 后
+  // closest 上溯到它那一行（#wiSliders 的每个子行都是 .flexFlowColumn），不用 nth-child。
   const WORLD_INFO_GROUPS = [
     { label: '标题栏', selectors: ['#WorldInfoheader'] },
-    { label: '世界书多选器', selectors: ['#WIMultiSelector'] },
-    { label: '全局激活设置', selectors: ['#wiTopBlock > div:nth-child(2)'] },
-    { label: '条目管理（新建/选择）', selectors: ['#world_popup_new', '#world_import_file', '#world_create_button', '#world_editor_select'] },
-    { label: '条目管理（导入/导出/改名/复制/删除）', selectors: ['#world_import_button', '#world_popup_export', '#world_popup_name_button', '#world_duplicate', '#world_popup_delete'] },
-    { label: '搜索与排序', selectors: ['#world_info_search', '#world_info_sort_order', '#world_apply_current_sorting'] },
-    { label: '列表工具（展开/收起/回填/刷新/分页）', selectors: ['#OpenAllWIEntries', '#CloseAllWIEntries', '#world_backfill_memos', '#world_refresh', '#world_info_pagination'] },
-    { label: '条目列表', selectors: ['#world_popup_entries_list'] },
+    { label: '世界书多选器（全局启用哪几本）', selectors: ['#WIMultiSelector'] },
+
+    // ── 全局激活设置 ──
+    { label: '激活：扫描深度', selectors: ['#world_info_depth'], closest: '.flexFlowColumn' },
+    { label: '激活：上下文预算', selectors: ['#world_info_budget'], closest: '.flexFlowColumn' },
+    { label: '激活：高级门槛（预算上限 / 最小激活数 / 最大深度 / 最大递归步数）', selectors: ['#world_info_budget_cap', '#world_info_min_activations', '#world_info_min_activations_depth_max', '#world_info_max_recursion_steps'], closest: '.flexFlowColumn' },
+    { label: '激活：插入策略', selectors: ['#world_info_character_strategy'], closest: '.flexFlowColumn' },
+    { label: '激活：全局开关（包含角色名 / 递归扫描 / 区分大小写 / 整词匹配 / 组评分 / 溢出提醒）', selectors: ['#wiCheckboxes'] },
+
+    // ── 世界书文件操作 ──
+    { label: '新建与编辑选择', selectors: ['#world_create_button', '#world_editor_select'] },
+    { label: '导入世界书', selectors: ['#world_import_button', '#world_import_file'] },
+    { label: '世界书操作（导出 / 重命名 / 复制 / 删除）', selectors: ['#world_popup_export', '#world_popup_name_button', '#world_duplicate', '#world_popup_delete'] },
+
+    // ── 条目工具条 ──
+    { label: '新建条目', selectors: ['#world_popup_new'] },
+    { label: '展开全部 / 收起全部', selectors: ['#OpenAllWIEntries', '#CloseAllWIEntries'] },
+    { label: '批量维护（回填标题与备忘录 / 应用当前排序）', selectors: ['#world_backfill_memos', '#world_apply_current_sorting'] },
+    { label: '搜索框', selectors: ['#world_info_search'] },
+    { label: '排序方式', selectors: ['#world_info_sort_order'] },
+    { label: '刷新', selectors: ['#world_refresh'] },
+    { label: '分页', selectors: ['#world_info_pagination'] },
+
+    { label: '条目列表（整块隐藏，慎用）', selectors: ['#world_popup_entries_list'] },
   ];
   // 高级格式化：三栏模板编辑器
   const ADVANCED_FORMATTING_GROUPS = [
@@ -1694,13 +1713,23 @@
     '[name="perEntryOverridesBlock"]',
     '[name="WIEntryBottomControls"] > *',
     '#wiTopBlock > *',
+    '#wiTopBlock',
     '#world_popup > .flex-container > *',
+    '#world_popup > .flex-container',
   ];
+  // 酒馆的按钮是 div.menu_button，不是 <button>：只认 input/button/a 会漏掉整个工具条
+  const CONTROL_SEL = 'input, select, textarea, button, a, .menu_button, .interactable, [role="button"]';
   // 返回 null 表示「这行本来就没控件（纯标题/分割线），不归我们管」。
-  // 注意从 c 往上走时要停在 row 之前：否则 row 自己上一轮的 mc3-gone 会被当成
-  // 「里面的控件都藏了」，于是永远自我维持，恢复分组后行也不回来。
+  // 注意两点：
+  //  1. 从 c 往上走要停在 row 之前 —— 否则 row 自己上一轮的 mc3-gone 会被当成
+  //     「里面的控件都藏了」，于是永远自我维持，恢复分组后行也不回来。
+  //  2. row 自己已经被某个分组藏掉（mc3-hidden / mc3-gone）时直接跳过：
+  //     它已经不在布局里，再叠一层 mc3-gone 只会让恢复逻辑更难推理。
   function isRowEmpty(row) {
-    const controls = row.querySelectorAll('input, select, textarea, button, a');
+    // 只对「被分组藏掉」的行让步；被上一轮收拢过的行必须重新算，
+    // 否则整条工具条收起来之后永远回不来（mc3-gone 自己把自己锁死）。
+    if (row.classList.contains('mc3-hidden')) return null;
+    const controls = (row.matches(CONTROL_SEL) ? [row] : []).concat(Array.from(row.querySelectorAll(CONTROL_SEL)));
     if (!controls.length) return null;
     for (const c of controls) {
       let hidden = false;
@@ -3101,7 +3130,7 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M23',
+      version: 'M24',
       settings,
       groups: GROUPS,
       getGroup,
