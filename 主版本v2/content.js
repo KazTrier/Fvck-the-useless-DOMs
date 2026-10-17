@@ -1,4 +1,4 @@
-// version 1025.0.0
+// version 1026.0.0
 
 (function () {
   'use strict';
@@ -344,6 +344,7 @@
     isolateCustomCss: false, // 独立"自定义CSS"块
     customFontColorEnabled: false, // 是否指定字体颜色（默认关闭，关闭时继承酒馆字体属性）
     customFontColor: null,   // 自定义 RGB 颜色 { r, g, b }；null 表示未指定，首次开启自动抓取
+    hideWelcomeVersion: false, // 藏掉主界面欢迎页的版本号徽标（TauriTavern x.y.z 'main' (hash)）
     activeTab: 'sort',       // 激活页签 'sort' | 'settings'
   };
 
@@ -373,6 +374,7 @@
         }
       }
       if (typeof s.customFontColorEnabled !== 'boolean') s.customFontColorEnabled = false;
+    if (typeof s.hideWelcomeVersion !== 'boolean') s.hideWelcomeVersion = false;
       if (s.customFontColor && typeof s.customFontColor === 'object') {
         s.customFontColor = {
           r: clampRgb(s.customFontColor.r, 238),
@@ -1098,6 +1100,7 @@
     if (doc.getElementById('mc3-style')) return;
     const rules = [
       '.mc3-hidden{display:none !important;}',
+    ':root.mc3-hide-welcome-version .welcomePanel .welcomeHeaderVersionDisplay{display:none !important;}',
       '.mc3-gone{display:none !important;}',
       '#extensionsMenu > .extension_container.mc3-hidden{display:none !important;}',
       'button.mc3-native-subgroup-header{width:100%;display:flex;align-items:center;gap:6px;padding:6px 10px;margin:2px 0;background:var(--black20a,rgba(255,255,255,.02));color:inherit;border:0;border-top:1px solid var(--SmartThemeBorderColor,#555);font:inherit;font-weight:600;text-align:left;cursor:pointer;user-select:none;}',
@@ -1575,6 +1578,13 @@
   }
 
   // QR 面板原生折叠：内容非空时原位注入极简箭头折叠按钮
+  // 主界面欢迎页版本号：欢迎面板是渲染进 #chat 的消息，聊天时不在文档里，逐元素扫描会时有时无。
+  // 改挂在根节点上，一条常驻规则 + 一个 class，面板一出现即生效。
+  function applyWelcomeVersionHide(on) {
+    const hide = !!on && !!settings.hideWelcomeVersion;
+    doc.documentElement.classList.toggle('mc3-hide-welcome-version', hide);
+  }
+
   function applyQrPanelFold() {
     const bar = doc.querySelector('#qr--bar');
     if (!bar) return;
@@ -1679,6 +1689,7 @@
     applyAlwaysHidden(settings.enabled);
     applySeparatorHides(settings.enabled);
     applyCustomSelectors(settings.enabled);
+  applyWelcomeVersionHide(settings.enabled);
     const all = scanAll();
     for (const group of GROUPS) {
       const recs = all[group.id] || [];
@@ -2412,6 +2423,10 @@
       '<input type="checkbox" id="mc3-set-userfold" class="mc3-checkbox" data-action="set-userfold"' + (settings.enableUserFold !== false ? ' checked' : '') + '>' +
       '</div>';
     html += '<div class="mc3-setting-row">' +
+        '<label class="mc3-setting-label" for="mc3-set-hidewelcomever"><span>隐藏主界面版本号</span></label>' +
+        '<input type="checkbox" id="mc3-set-hidewelcomever" class="mc3-checkbox" data-action="set-hidewelcomever"' + (settings.hideWelcomeVersion ? ' checked' : '') + '>' +
+        '</div>';
+    html += '<div class="mc3-setting-row">' +
       '<label class="mc3-setting-label" for="mc3-set-customcss"><span>将自定义CSS块从杂项中独立出来</span></label>' +
       '<input type="checkbox" id="mc3-set-customcss" class="mc3-checkbox" data-action="set-customcss"' + (settings.isolateCustomCss ? ' checked' : '') + '>' +
       '</div>';
@@ -2649,7 +2664,7 @@
     ov.innerHTML = '<div id="mc3-popup">' +
       '<div id="mc3-head">' +
         '<div class="mc3-head-title">' +
-          '<span class="mc3-brand">菜单精简器<span class="mc3-ver-pill" title="内部版本号">M29</span></span>' +
+          '<span class="mc3-brand">菜单精简器<span class="mc3-ver-pill" title="内部版本号">M30</span></span>' +
           '<div class="mc3-tabs">' +
             '<button type="button" class="mc3-tab" data-action="switch-tab" data-tab="sort">菜单排序</button>' +
             '<button type="button" class="mc3-tab" data-action="switch-tab" data-tab="settings">插件设置</button>' +
@@ -2751,6 +2766,7 @@
     'set-qrfold': (t) => { settings.enableQrFold = t.checked; saveSettings(); applyAll(); renderPopup(); },
 
     'set-userfold': (t) => { settings.enableUserFold = t.checked; saveSettings(); applyAll(); renderPopup(); },
+  'set-hidewelcomever': (t) => { settings.hideWelcomeVersion = t.checked; saveSettings(); applyAll(); renderPopup(); },
 
     'set-customcss': (t) => { settings.isolateCustomCss = t.checked; saveSettings(); applyAll(); renderPopup(); },
 
@@ -3315,14 +3331,14 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M29',
+      version: 'M30',
       settings,
       groups: GROUPS,
       getGroup,
       scanGroup, scanMesButtons, scanCurated, scanAll,
       applyAll, applyMesButtons, clearMesButtons,
       ensureContainersObserved,
-      ensureSlotHydrated, hydrateAllPanels, PANEL_SLOTS, WORLD_ENTRY_GROUPS, compactEmptyRows,      renderMesButtonsCard, applyPseudoSubgroups, applyCustomSelectors,
+      ensureSlotHydrated, hydrateAllPanels, PANEL_SLOTS, WORLD_ENTRY_GROUPS, compactEmptyRows,      renderMesButtonsCard, applyPseudoSubgroups, applyCustomSelectors, applyWelcomeVersionHide,
       addCustomSelector: (sel, label) => CustomSelectors.add(sel, label),
       deleteCustomSelector: (id) => CustomSelectors.remove(id),
       setColumnMode,

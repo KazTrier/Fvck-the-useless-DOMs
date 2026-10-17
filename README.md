@@ -16,6 +16,7 @@
 - QR区域可隐藏按钮与折叠
 - 面板顶部有筛选框：按条目名或**面板名**过滤（输入「世界书」直接整组命中）、`/` 聚焦、`Esc` 清空、实时显示命中数，也可切「仅看已启用」
 - 每张卡片头部有计数胶囊、已隐数量徽标与「全隐 / 全显」整组开关；工具栏可一键展开或折叠全部卡片
+- 设置页开关「隐藏主界面版本号」：一键藏掉欢迎页左上角 `TauriTavern 2.3.0 'main' (hash)` 那串
 - 以及隐藏其他一切你不想看见的东西
 
 ## 开始使用
@@ -45,6 +46,16 @@ TauriTavern 有「Panel Runtime」档位（设置项 `tauritavern-settings.panel
 接回后立刻复位，抽屉不会自己弹开。如果仍有板块缺失，**先手动点开一次那个抽屉**再打开管理面板即可。
 
 ## 更新记录
+
+### 1026.0.0 / M30
+
+**主界面那串版本号可以藏了。** 设置页新增开关「隐藏主界面版本号」（默认关闭）：打开后欢迎页左上角 `TauriTavern 2.3.0 'main' (a1855be4a4f8)` 整串消失，logo 和右侧三个图标按钮原位保留。
+
+- 目标元素：`templates/welcomePanel.html:4` 的 `<span class="welcomeHeaderVersionDisplay">{{version}}</span>`，由 `welcome-screen.js:322 sendWelcomePanel()` 渲染成 `#chat` 里的一条消息。
+- **没做成卡片开关的原因**：欢迎面板是「消息」，进聊天后就不在文档里了，逐元素扫描的开关会时有时无。改成根节点 class + 一条常驻规则 `:root.mc3-hide-welcome-version .welcomePanel .welcomeHeaderVersionDisplay{display:none !important}`，面板一出现立刻生效，零扫描、零闪烁、不碰宿主 DOM。
+- 只是临时想藏：设置页「指哪消哪」里填 `.welcomeHeaderVersionDisplay` 也行。
+
+验证：`verify-v1026.mjs` 全过（版本/默认值 4 项、规则与元素 4 项、开关行为 5 项、设置页开关 7 项、规范化兜底 1 项）；48 格环境矩阵、历史套件（17 个 verify 脚本）、仓库自测 13/13 全绿。
 
 ### 1025.0.0 / M29
 
