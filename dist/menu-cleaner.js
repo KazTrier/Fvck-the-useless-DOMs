@@ -1,4 +1,4 @@
-// version 1024.0.0
+// version 1025.0.0
 
 (function () {
   'use strict';
@@ -283,7 +283,7 @@
     { label: '完整单词匹配', selectors: ['select[name="matchWholeWords"]'], closest: '.world_entry_form_control' },
     { label: '组评分', selectors: ['select[name="useGroupScoring"]'], closest: '.world_entry_form_control' },
     { label: '自动化 ID', selectors: ['input[name="automationId"]'], closest: '.world_entry_form_control' },
-    { label: '递归等级', selectors: ['input[name="delayUntilRecursionLevel"]'], closest: '.world_entry_form_control' },
+    { label: '递归等级（先勾选「延迟到递归」才会出现）', selectors: ['input[name="delayUntilRecursionLevel"]'], closest: '.world_entry_form_control', visibleOnly: true },
     { label: '包含组', selectors: ['input[name="group"]', 'input[name="groupOverride"]'], closest: '.flex4' },
     { label: '组权重', selectors: ['input[name="groupWeight"]'], closest: '.flex2' },
     { label: '粘性 Sticky', selectors: ['input[name="sticky"]'], closest: '.flex2' },
@@ -293,7 +293,6 @@
     { label: '防止进一步递归', selectors: ['input[name="preventRecursion"]'], closest: 'label.checkbox' },
     { label: '延迟到递归', selectors: ['input[name="delay_until_recursion"]'], closest: 'label.checkbox' },
     { label: '无视回复限额', selectors: ['input[name="ignoreBudget"]'], closest: 'label.checkbox' },
-    { label: '旧版底部控件（selective / useProbability / addMemo）', selectors: ['[name="WIEntryBottomControls"]'] },
   ];
 
   const CURATED_GROUPS = {
@@ -960,6 +959,14 @@
           if (els.indexOf(found) !== -1 || isSelf(found)) continue;
           if (isBackendHidden(found)) continue; // 当前后端用不到 → 不生成记录，免得面板里堆死选项
           els.push(found);
+        }
+      }
+      // 面板已挂载（没被宿主停放）时，只认真正渲染出来的那几份：
+      // CSS :has() 条件隐藏的格子（递归等级 / 出口名）在面板里高度为 0，列出来只会是「点了没反应」的死项。
+      if (pg.visibleOnly && els.length && doc.querySelector('#world_popup')) {
+        for (let i = els.length - 1; i >= 0; i--) {
+          const r = els[i].getClientRects ? els[i].getClientRects().length : 1;
+          if (!r) els.splice(i, 1);
         }
       }
       if (!els.length) continue;
@@ -2642,7 +2649,7 @@
     ov.innerHTML = '<div id="mc3-popup">' +
       '<div id="mc3-head">' +
         '<div class="mc3-head-title">' +
-          '<span class="mc3-brand">菜单精简器<span class="mc3-ver-pill" title="内部版本号">M28</span></span>' +
+          '<span class="mc3-brand">菜单精简器<span class="mc3-ver-pill" title="内部版本号">M29</span></span>' +
           '<div class="mc3-tabs">' +
             '<button type="button" class="mc3-tab" data-action="switch-tab" data-tab="sort">菜单排序</button>' +
             '<button type="button" class="mc3-tab" data-action="switch-tab" data-tab="settings">插件设置</button>' +
@@ -3308,7 +3315,7 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M28',
+      version: 'M29',
       settings,
       groups: GROUPS,
       getGroup,
