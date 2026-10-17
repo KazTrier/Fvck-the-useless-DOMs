@@ -24,21 +24,25 @@ test('openPopup 与 scanGroup 在执行时触发了面板水合', () => {
 });
 
 test('ensureExtensionsHydrated 运行时行为测试（挂载与未挂载 PanelRuntime）', () => {
-  // 提取 SLOT_PROBES + missingSlots(负缓存) + ensureSlotHydrated + ensureExtensionsHydrated 在沙箱环境中验证
+  // 提取 ALWAYS_CONNECTED + 扩展探针 + SLOT_PROBES + missingSlots(负缓存) + ensureSlotHydrated + ensureExtensionsHydrated
+  const alwaysMatch = code.match(/const EXT_ALWAYS_CONNECTED = \[[\s\S]*?\];/);
+  const probeFnMatch = code.match(/function extensionContainersHydrated\s*\(\)\s*\{[\s\S]*?\n  \}/);
   const probesMatch = code.match(/const SLOT_PROBES = \{[\s\S]*?\n  \};/);
   const missingMatch = code.match(/const missingSlots = new Set\(\);/);
   const slotsMatch = code.match(/const PANEL_SLOTS = \{[\s\S]*?\n  \};/);
   const slotFnMatch = code.match(/function ensureSlotHydrated\s*\(slotId\)\s*\{[\s\S]*?\n  \}/);
   const fnMatch = code.match(/function ensureExtensionsHydrated\s*\(\)\s*\{[\s\S]*?\n  \}/);
+  assert.ok(alwaysMatch, '应能匹配到 EXT_ALWAYS_CONNECTED 定义');
+  assert.ok(probeFnMatch, '应能匹配到 extensionContainersHydrated 函数定义');
   assert.ok(probesMatch, '应能匹配到 SLOT_PROBES 定义');
   assert.ok(missingMatch, '应能匹配到 missingSlots 负缓存定义');
   assert.ok(slotsMatch, '应能匹配到 PANEL_SLOTS 定义');
   assert.ok(slotFnMatch, '应能匹配到 ensureSlotHydrated 函数定义');
   assert.ok(fnMatch, '应能匹配到 ensureExtensionsHydrated 函数定义');
 
-  const fnSource = [probesMatch[0], missingMatch[0], slotsMatch[0], slotFnMatch[0], fnMatch[0]].join('\n');
-  // 探针查询用的 doc：一律返回 null 表示「尚未接回文档」，逼出真正的 setVisible/reconcile 分支
-  const emptyDoc = { querySelector: () => null };
+  const fnSource = [alwaysMatch[0], probeFnMatch[0], probesMatch[0], missingMatch[0], slotsMatch[0], slotFnMatch[0], fnMatch[0]].join('\n');
+  // 探针查询用的 doc：一律返回 null/空集，表示「尚未接回文档」，逼出真正的 setVisible/reconcile 分支
+  const emptyDoc = { querySelector: () => null, querySelectorAll: () => [] };
 
   // 1. 未挂载 __TAURITAVERN_PANEL_RUNTIME__（如纯网页版 SillyTavern）
   {
@@ -91,5 +95,37 @@ test('ensureExtensionsHydrated 运行时行为测试（挂载与未挂载 PanelR
     vm.runInContext(`${fnSource}; result = ensureExtensionsHydrated();`, sandbox);
     assert.strictEqual(sandbox.result, false, '抛出异常时应被捕获并返回 false');
     assert.strictEqual(warned, true, '应打印 warning 日志');
+  }
+
+  // 4. 回归：regex_container / qr_container 属 ALWAYS_CONNECTED，永不脱水，
+  //    它们非空绝不能当成「已水合」——否则会跳过 reconcile，其余容器全部留在 DocumentFragment 里。
+  {
+    const calls = [];
+    const onlyAlwaysConnected = {
+      querySelector: () => null,
+      querySelectorAll: () => ([
+        { id: 'regex_container', children: [1], textContent: 'Regex' },
+        { id: 'qr_container', children: [1], textContent: 'Quick Replies' },
+        { id: 'sd_container', children: [], textContent: '' },
+        { id: 'tts_container', children: [], textContent: '' }
+      ])
+    };
+    const sandbox = {
+      win: {
+        __TAURITAVERN_PANEL_RUNTIME__: {
+          setVisible: (id, visible) => { calls.push(['setVisible', id, visible]); },
+          reconcile: () => { calls.push(['reconcile']); }
+        }
+      },
+      doc: onlyAlwaysConnected,
+      console: { warn: () => {} }
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(`${fnSource}; result = ensureExtensionsHydrated();`, sandbox);
+    assert.strictEqual(sandbox.result, true, '仍应执行水合');
+    assert.deepStrictEqual(calls, [
+      ['setVisible', 'tt:gate:rm_extensions_block:extension_containers', true],
+      ['reconcile']
+    ], '只有 ALWAYS_CONNECTED 容器非空时，探针必须判为未水合，确保 reconcile 被调用');
   }
 });

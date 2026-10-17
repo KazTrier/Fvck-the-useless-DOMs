@@ -10,8 +10,8 @@
 - 左下菜单，魔棒，顶栏，扩展面板可隐藏和重排序，扩展面板可切换单双栏
 - **预设面板只列当前后端用得到的东西**：Kobold / NovelAI / Text Completion 的预设栏与采样栏在切到对应后端时才出现，其余情况不占位
 - 用户设置区域可分块隐藏与可选折叠
-- **世界书面板**按真实工具栏逐块隐藏（18 组：标题行 / 激活参数折叠栏 / 多选器 / 全局激活 ×5 / 世界书操作 ×2 / 条目工具条 ×7）
-- **世界书·条目编辑器**分 18 组（关键字 / 条目级参数 / 内容与分组 / 筛选与递归），只作用于已展开的条目，不碰模板
+- **世界书·条目编辑器**按 [cocktail](https://github.com/Lianues/cocktail) 的 `modules/worldinfo-panel-slim.js` 逐控件拆成 22 组（匹配与逻辑 / 条目级参数 / 分组与递归 / 筛选触发器 / 旧版底部控件），只作用于 `#world_popup_entries_list` 里已展开的条目克隆，不碰模板
+- 世界书面板本身（工具栏、多选器、全局激活参数）不再提供开关 —— 那些按钮每轮都在变，拆成开关列表只会变成噪声
 - **高级格式化**三栏（上下文模板 / Instruct / 系统提示词）可分块隐藏
 - QR区域可隐藏按钮与折叠
 - 面板顶部有筛选框，可按名称过滤，也可切「仅看已启用」
@@ -36,7 +36,7 @@ TauriTavern 有「Panel Runtime」档位（设置项 `tauritavern-settings.panel
 | --- | --- | --- |
 | 预设板块条目变少 | `#left-nav-panel .scrollableInner` | `panel:left-nav-panel` |
 | 用户设置扫不到 | `#user-settings-block-content` | `panel:user-settings-block` |
-| 世界书面板扫不到 | `#wi-holder` | `panel:WorldInfo` |
+| 条目编辑器扫不到 | `#wi-holder` | `panel:WorldInfo` |
 | 高级格式化扫不到 | `#AdvancedFormatting .flex-container.spaceEvenly` | `panel:AdvancedFormatting` |
 | 扩展设置扫不到 | 各 `.extension_container` 的子节点 | `tt:gate:rm_extensions_block:extension_containers` |
 
@@ -44,6 +44,37 @@ TauriTavern 有「Panel Runtime」档位（设置项 `tauritavern-settings.panel
 接回后立刻复位，抽屉不会自己弹开。如果仍有板块缺失，**先手动点开一次那个抽屉**再打开管理面板即可。
 
 ## 更新记录
+
+### 1022.0.0 / M26
+
+**修「扩展设置又扫不全」** —— 这是我在 1018.2 自己埋的坑。为了让水合只跑一次，我给每个 slot 配了个「已接回文档」的探针，扩展设置那条写的是：
+
+```js
+'#extensions_settings .extension_container:not(:empty), #extensions_settings2 .extension_container:not(:empty)'
+```
+
+问题在于宿主的 `ALWAYS_CONNECTED_EXTENSION_CONTAINER_IDS = new Set(['regex_container', 'qr_container'])` —— 这两个容器**永不脱水**，永远非空。探针一命中就返回「已水合」，于是 `setVisible` + `reconcile` 被整个跳过，其余十几个容器继续留在 DocumentFragment 里。表现就是扩展设置列表只剩 Regex 和 Quick Replies。
+
+- 探针改成函数 `extensionContainersHydrated()`：遍历两个 settings 区里的 `.extension_container`，**跳过 ALWAYS_CONNECTED 的那两个**，只要还有别的容器是空的，就判定「未水合」
+- `SLOT_PROBES` 现在同时接受选择器与函数（`typeof probe === 'function' ? probe() : doc.querySelector(probe)`）
+- 补了一条回归测试：doc 里只有 regex/qr 非空时，必须判定为未水合并调用 `reconcile`
+
+**删掉「世界书面板」整块分组**（18 组）。理由不是「难维护」，而是它不满足开关的定义：里面的多选器、新建/导入按钮、工具条会随版本整块换位置，而**真正天天要藏的东西在条目编辑器里**。删掉之后 `worldInfo` 从 `GROUPS`、`scanAll`、`PANEL_SLOTS` 里全部消失，共减少 18 条记录、约 40 个探针选择器。
+
+**条目编辑器整块换成 cocktail 版本**（22 组）。之前是我按 `name` 属性自己归的类，颗粒度粗（「递归控制」把 4 个开关捆一起、「深度/顺序/概率」只锚到一列）。现在按 cocktail 的 22 个 `hide*` 开关逐条对齐，锚点链也照抄它在真实 DOM 上验过的 `closest`：
+
+| 组 | 锚点 | 上溯容器 |
+| --- | --- | --- |
+| 主要关键字 / 逻辑 / 扫描深度 | `textarea[name=key]` / `select[name=entryLogicType]` / `input[name=scanDepth]` | `.world_entry_form_control` |
+| 可选过滤器 / 绑定到角色或标签 / 筛选生成触发器 | `select[name=characterFilter]` / `select[name=triggers]` | `.flex4` |
+| 包含组 | `input[name=group]` | `.flex4` |
+| 组权重 / 粘性 / 冷却 / 延迟 | `input[name=groupWeight\|sticky\|cooldown\|delay]` | `.flex2` |
+| 不可递归 / 防止进一步递归 / 延迟到递归 / 无视回复限额 | `input[name=excludeRecursion\|preventRecursion\|delay_until_recursion\|ignoreBudget]` | `label.checkbox` |
+
+- 新增 `pg.requires`：某些组只在特定控件存在时出现（如「旧版底部控件」要求 `[name="WIEntryBottomControls"]`），避免在没有它的条目上留空组
+- 空壳收拢换成 cocktail 的 `compactEmptyContainers` 四类容器
+
+验证：`verify-v1022.mjs` 全过（扩展设置 6 条全部接回、worldInfo 三处注册点清零、worldEntry 22 组且 closest 链逐条对齐、模板零污染、同页无共享无嵌套）；`verify-matrix.mjs` 48 格矩阵全绿；历史套件 `v1018/v1018b/v1018c` 与仓库自测 13/13 全绿。
 
 ### 1021.0.0 / M25
 

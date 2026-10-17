@@ -1,4 +1,4 @@
-// version 1021.0.0
+// version 1022.0.0
 
 (function () {
   'use strict';
@@ -84,13 +84,7 @@
       observe: ['#chat', '#message_template'],
       mode: 'mesButtons', customApply: true,
     },
-    // ── 以下四块走 curated：每块是「若干独立 DOM 区块」，各自可整块隐藏/排序 ──
-    {
-      id: 'worldInfo', name: '世界书面板',
-      button: '#WI-SP-button',
-      curated: true,
-      observe: ['#wi-holder', '#WorldInfo'],
-    },
+    // ── 以下走 curated：每块是「若干独立 DOM 区块」，各自可整块隐藏/排序 ──
     {
       id: 'worldEntry', name: '世界书·条目编辑器',
       button: '#WI-SP-button',
@@ -262,36 +256,7 @@
     return USER_SETTINGS_GROUPS;
   }
 
-  // 世界书：按真实工具栏逐按钮拆分（锚点取自 index.html 的静态 id，不用 nth-child）
-  // 世界书面板（#wi-holder）：按功能区拆，锚点尽量用 id；滑块类控件命中 input 后
-  // closest 上溯到它那一行（#wiSliders 的每个子行都是 .flexFlowColumn），不用 nth-child。
-  const WORLD_INFO_GROUPS = [
-    { label: '标题行（Worlds / Lorebooks）', selectors: ['#WorldInfo > div.flex-container.alignitemscenter.gap10px'] },
-    { label: '激活参数折叠栏（Scan Depth / Budget / Min Activations）', selectors: ['#wiTopBlock .inline-drawer > .inline-drawer-header'] },
-    { label: '世界书多选器（全局启用哪几本）', selectors: ['#WIMultiSelector'] },
-
-    // ── 全局激活设置 ──
-    { label: '激活：扫描深度', selectors: ['#world_info_depth'], closest: '.flexFlowColumn' },
-    { label: '激活：上下文预算', selectors: ['#world_info_budget'], closest: '.flexFlowColumn' },
-    { label: '激活：高级门槛（预算上限 / 最小激活数 / 最大深度 / 最大递归步数）', selectors: ['#world_info_budget_cap', '#world_info_min_activations', '#world_info_min_activations_depth_max', '#world_info_max_recursion_steps'], closest: '.flexFlowColumn' },
-    { label: '激活：插入策略', selectors: ['#world_info_character_strategy'], closest: '.flexFlowColumn' },
-    { label: '激活：全局开关（包含角色名 / 递归扫描 / 区分大小写 / 整词匹配 / 组评分 / 溢出提醒）', selectors: ['#wiCheckboxes'] },
-
-    // ── 世界书文件操作 ──
-    { label: '新建与编辑选择', selectors: ['#world_create_button', '#world_editor_select'] },
-    { label: '导入世界书', selectors: ['#world_import_button', '#world_import_file'] },
-    { label: '世界书操作（导出 / 重命名 / 复制 / 删除）', selectors: ['#world_popup_export', '#world_popup_name_button', '#world_duplicate', '#world_popup_delete'] },
-
-    // ── 条目工具条 ──
-    { label: '新建条目', selectors: ['#world_popup_new'] },
-    { label: '展开全部 / 收起全部', selectors: ['#OpenAllWIEntries', '#CloseAllWIEntries'] },
-    { label: '批量维护（回填标题与备忘录 / 应用当前排序）', selectors: ['#world_backfill_memos', '#world_apply_current_sorting'] },
-    { label: '搜索框', selectors: ['#world_info_search'] },
-    { label: '排序方式', selectors: ['#world_info_sort_order'] },
-    { label: '刷新', selectors: ['#world_refresh'] },
-    { label: '分页', selectors: ['#world_info_pagination'] },
-
-  ];
+  // 世界书面板模块已按需求移除（v1022.0.0）。条目编辑器见下方 WORLD_ENTRY_GROUPS。  ];
   // 高级格式化：三栏模板编辑器
   const ADVANCED_FORMATTING_GROUPS = [
     { label: '上下文模板', selectors: ['#ContextSettings'] },
@@ -299,35 +264,40 @@
     { label: '系统提示词', selectors: ['#SystemPromptColumn'] },
   ];
 
-  // 世界书条目编辑器（.world_entry_edit，模板 #entry_edit_template + 每个条目一份克隆）。
-  // 锚点一律用 name 属性再上溯到排版容器，不用 nth-child —— 酒馆改版时 nth-child 会静默错位。
-  // 拆分粒度参考 cocktail 的 modules/worldinfo-panel-slim.js
+  // 世界书条目编辑器 —— 完全采用鸡尾酒 modules/worldinfo-panel-slim.js 的分块与锚点链。
+  // 22 个具名开关，一一对应它 DEFAULT_SETTINGS 里那 22 个 hide* 项：
+  //   锚点一律先用 name 属性定位控件，再 closest 到它所属的排版容器：
+  //   select 类 → .flex4，input 类 → .flex2，checkbox 类 → label.checkbox，
+  //   文本/数值类 → .world_entry_form_control。
+  //   「额外匹配来源」是整块 inline-drawer，用内部 6 个 match* marker input 认领。
   const WORLD_ENTRY_GROUPS = [
-    { label: '主关键字与逻辑', selectors: ['.world_entry_form_control.keyprimary', 'select[name="entryLogicType"]'], closest: '.world_entry_form_control' },
-    { label: '可选过滤器', selectors: ['.world_entry_form_control.keysecondary'] },
-    { label: '出口名 Outlet', selectors: ['input[name="outletName"]'], closest: '.world_entry_form_control' },
+    { label: '额外匹配来源（角色描述 / 性格 / 场景 / 用户人设 / 深度提示 / 作者注释）', selectors: ['.inline-drawer.wide100p.flexFlowColumn'], requires: ['input[name="matchCharacterDescription"],input[name="matchCharacterPersonality"],input[name="matchScenario"],input[name="matchPersonaDescription"],input[name="matchCharacterDepthPrompt"],input[name="matchCreatorNotes"]'] },
+    { label: '主要关键字', selectors: ['textarea[name="key"]', 'select[name="key"]', '.world_entry_form_control.keyprimary'], closest: '.world_entry_form_control' },
+    { label: '逻辑', selectors: ['select[name="entryLogicType"]'], closest: '.world_entry_form_control' },
+    { label: '可选过滤器', selectors: ['textarea[name="keysecondary"]', 'select[name="keysecondary"]', '.world_entry_form_control.keysecondary'], closest: '.world_entry_form_control' },
+    { label: '绑定到角色或标签', selectors: ['select[name="characterFilter"]'], closest: '.flex4' },
+    { label: '筛选生成触发器', selectors: ['select[name="triggers"]'], closest: '.flex4' },
     { label: '扫描深度', selectors: ['input[name="scanDepth"]'], closest: '.world_entry_form_control' },
     { label: '区分大小写', selectors: ['select[name="caseSensitive"]'], closest: '.world_entry_form_control' },
     { label: '完整单词匹配', selectors: ['select[name="matchWholeWords"]'], closest: '.world_entry_form_control' },
     { label: '组评分', selectors: ['select[name="useGroupScoring"]'], closest: '.world_entry_form_control' },
     { label: '自动化 ID', selectors: ['input[name="automationId"]'], closest: '.world_entry_form_control' },
     { label: '递归等级', selectors: ['input[name="delayUntilRecursionLevel"]'], closest: '.world_entry_form_control' },
-    { label: '正文编辑区（含不可递归 / 防止递归 / 延迟到递归 / 无视预算）', selectors: ['textarea[name="content"]'], closest: '.world_entry_form_control' },
-    { label: '包含组', selectors: ['input[name="group"]'], closest: '.range-block-range' },
-    { label: '组权重', selectors: ['input[name="groupWeight"]'], closest: '.range-block-range' },
-    { label: '粘性 Sticky', selectors: ['input[name="sticky"]'], closest: '.range-block-range' },
-    { label: '冷却 Cooldown', selectors: ['input[name="cooldown"]'], closest: '.range-block-range' },
-    { label: '延迟 Delay', selectors: ['input[name="delay"]'], closest: '.range-block-range' },
-    { label: '绑定角色或标签', selectors: ['select[name="characterFilter"]'], closest: '.range-block-range' },
-    { label: '筛选生成触发器', selectors: ['select[name="triggers"]'], closest: '.range-block-range' },
-    { label: '概率与选择性开关（selective / useProbability / addMemo）', selectors: ['[name="WIEntryBottomControls"]'] },
-    { label: '位置 / 深度 / 顺序 / 触发概率', selectors: ['div.world_entry_form_control.wi-enter-footer-text'] },
+    { label: '包含组', selectors: ['input[name="group"]', 'input[name="groupOverride"]'], closest: '.flex4' },
+    { label: '组权重', selectors: ['input[name="groupWeight"]'], closest: '.flex2' },
+    { label: '粘性 Sticky', selectors: ['input[name="sticky"]'], closest: '.flex2' },
+    { label: '冷却 Cooldown', selectors: ['input[name="cooldown"]'], closest: '.flex2' },
+    { label: '延迟 Delay', selectors: ['input[name="delay"]'], closest: '.flex2' },
+    { label: '不可递归', selectors: ['input[name="excludeRecursion"]'], closest: 'label.checkbox' },
+    { label: '防止进一步递归', selectors: ['input[name="preventRecursion"]'], closest: 'label.checkbox' },
+    { label: '延迟到递归', selectors: ['input[name="delay_until_recursion"]'], closest: 'label.checkbox' },
+    { label: '无视回复限额', selectors: ['input[name="ignoreBudget"]'], closest: 'label.checkbox' },
+    { label: '旧版底部控件（selective / useProbability / addMemo）', selectors: ['[name="WIEntryBottomControls"]'] },
   ];
 
   const CURATED_GROUPS = {
     presetSettings: PRESET_GROUPS,
     userSettings: USER_SETTINGS_GROUPS,
-    worldInfo: WORLD_INFO_GROUPS,
     worldEntry: WORLD_ENTRY_GROUPS,
     advancedFormatting: ADVANCED_FORMATTING_GROUPS,
   };
@@ -709,19 +679,30 @@
     extensionsSettings: 'tt:gate:rm_extensions_block:extension_containers',
     userSettings: 'panel:user-settings-block',
     presetSettings: 'panel:left-nav-panel',
-    worldInfo: 'panel:WorldInfo',
     worldEntry: 'panel:WorldInfo',
     advancedFormatting: 'panel:AdvancedFormatting',
   };
 
   // 每个 slot「已接回文档」的判定探针：命中即认为无需再次 reconcile。
   // 宿主 reconcile() 是同步全量重排，一次 applyAll 里连调 5 次在真实页面上肉眼可见地卡。
+  // 探针的值可以是 CSS 选择器，也可以是「已接回」判定函数。
+  // 扩展设置不能用 :not(:empty) —— regex_container / qr_container 属于 ALWAYS_CONNECTED，
+  // 永远留着子节点，探针一命中就误判成「已水合」，于是直接跳过 reconcile，其余容器全都空着。
+  const EXT_ALWAYS_CONNECTED = ['regex_container', 'qr_container'];
+  function extensionContainersHydrated() {
+    const list = doc.querySelectorAll('#extensions_settings .extension_container, #extensions_settings2 .extension_container');
+    for (const c of list) {
+      if (EXT_ALWAYS_CONNECTED.indexOf(c.id) !== -1) continue;
+      if (c.children.length > 0 || c.textContent.trim()) return true;
+    }
+    return false;
+  }
   const SLOT_PROBES = {
     'panel:left-nav-panel': '#openai_settings',
     'panel:user-settings-block': '#UI-Theme-Block',
     'panel:WorldInfo': '#wi-holder',
     'panel:AdvancedFormatting': '#AdvancedFormatting .flex-container.spaceEvenly',
-    'tt:gate:rm_extensions_block:extension_containers': '#extensions_settings .extension_container:not(:empty), #extensions_settings2 .extension_container:not(:empty)',
+    'tt:gate:rm_extensions_block:extension_containers': extensionContainersHydrated,
   };
 
   // 宿主 setVisible 对不存在的 slot 直接抛错；没这个负缓存的话每次 applyAll 都会白试一遍并刷 warn
@@ -731,7 +712,9 @@
     if (!slotId || missingSlots.has(slotId)) return false;
     const probe = SLOT_PROBES[slotId];
     if (probe) {
-      try { if (doc.querySelector(probe)) return true; } catch (_) {}
+      try {
+        if (typeof probe === 'function' ? probe() : doc.querySelector(probe)) return true;
+      } catch (_) {}
     }
     try {
       const mgr = win.__TAURITAVERN_PANEL_RUNTIME__;
@@ -971,6 +954,8 @@
           if (pg.closest) found = found.closest(pg.closest) || found;
           // 分组级作用域：锚点必须落在 scope 内（如条目编辑器只认列表里的克隆，不碰模板）
           if (group.scope && !(found.matches(group.scope) || found.closest(group.scope))) continue;
+          // 附加认领条件：候选块内必须存在指定子元素（如「额外匹配来源」靠 6 个 marker input 认领）
+          if (pg.requires && !pg.requires.some((sel) => found.matches(sel) || found.querySelector(sel))) continue;
           if (els.indexOf(found) !== -1 || isSelf(found)) continue;
           if (isBackendHidden(found)) continue; // 当前后端用不到 → 不生成记录，免得面板里堆死选项
           els.push(found);
@@ -1723,16 +1708,21 @@
 
   // 隐藏后留下的空壳：一整行控件全被藏掉时，把这一行也收起来，否则页面上会剩一排空白与分割线。
   // 只在这些「行容器」上做，范围收窄以免误伤别的面板。（思路同 cocktail 的 applyCompactVisibility）
+  // 与鸡尾酒 compactEmptyContainers 对齐的四类容器：
+  //   1) 关键字与逻辑块整体（块内没有可见的 .world_entry_form_control 时收起）
+  //   2) 条目级覆盖块整体
+  //   3) 正文行右边那组 4 个递归开关的包裹层（label small > span > div.flex-container）
+  //   4) 条目里 .flex-container.wide100p.flexGap10 的横向行
   const COMPACT_ROW_SELECTORS = [
     '[name="keywordsAndLogicBlock"] > *',
     '[name="perEntryOverridesBlock"] > *',
     '[name="keywordsAndLogicBlock"]',
     '[name="perEntryOverridesBlock"]',
     '[name="WIEntryBottomControls"] > *',
-    '#wiTopBlock > *',
-    '#wiTopBlock',
-    '#world_popup > .flex-container > *',
-    '#world_popup > .flex-container',
+    '.world_entry .world_entry_form_control label small > span > div.flex-container',
+    '.world_entry_edit .world_entry_form_control label small > span > div.flex-container',
+    '.world_entry > .flex-container.wide100p.flexGap10',
+    '.world_entry_edit > .flex-container.wide100p.flexGap10',
   ];
   // 酒馆的按钮是 div.menu_button，不是 <button>：只认 input/button/a 会漏掉整个工具条
   const CONTROL_SEL = 'input, select, textarea, button, a, .menu_button, .interactable, [role="button"]';
@@ -3185,7 +3175,7 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M25',
+      version: 'M26',
       settings,
       groups: GROUPS,
       getGroup,
