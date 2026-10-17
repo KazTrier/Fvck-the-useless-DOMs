@@ -1,4 +1,4 @@
-// version 1023.0.0
+// version 1024.0.0
 
 (function () {
   'use strict';
@@ -2067,7 +2067,55 @@
     '.mc3-mes-col-count{opacity:.5;font-size:11px;margin-left:auto;}' +
     '.mc3-mes-list{min-height:56px;padding:4px 0;flex:1;transition:background .15s;}' +
     '.mc3-mes-list.mc3-drop-target{background:rgba(58,170,102,.12);border-radius:4px;}' +
-    '@media screen and (max-width:480px){.mc3-mes-columns{flex-direction:column;}}';
+    '@media screen and (max-width:480px){.mc3-mes-columns{flex-direction:column;}}' +
+    // ── 1024 界面优化 ───────────────────────────────────────────────────────
+    '#mc3-popup{width:min(680px,95vw);border-radius:14px;box-shadow:0 18px 60px rgba(0,0,0,.55);}' +
+    '#mc3-head{padding:12px 16px;background:linear-gradient(180deg,rgba(255,255,255,.045),transparent);}' +
+    '.mc3-brand{display:inline-flex;align-items:center;gap:8px;font-size:15px;letter-spacing:.02em;}' +
+    '.mc3-ver-pill{font-size:10px;font-weight:600;padding:1px 6px;border-radius:999px;background:var(--black30a,rgba(0,0,0,.3));border:1px solid var(--SmartThemeBorderColor,#555);opacity:.7;letter-spacing:.03em;}' +
+    // 标签页改成胶囊分段控件
+    '.mc3-tabs{background:var(--black30a,rgba(0,0,0,.28));border:1px solid var(--SmartThemeBorderColor,#555);border-radius:999px;padding:2px;gap:2px;}' +
+    '.mc3-tab{border:0;border-radius:999px;padding:4px 14px;font-size:12.5px;}' +
+    '.mc3-tab.active{background:var(--SmartThemeQuoteColor,#3a6);color:#fff;border:0;box-shadow:0 1px 6px rgba(0,0,0,.25);}' +
+    '#mc3-head .mc3-x{width:28px;height:28px;border-radius:8px;transition:background .15s,opacity .15s;}' +
+    '#mc3-head .mc3-x:hover{background:var(--black30a,rgba(0,0,0,.3));}' +
+    // 工具栏：吸顶 + 分段
+    '#mc3-tools{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--SmartThemeBlurTintColor,#1e1e1e);border-bottom:1px solid var(--SmartThemeBorderColor,#555);}' +
+    '.mc3-filter-wrap{position:relative;flex:1 1 200px;min-width:150px;display:flex;align-items:center;}' +
+    '.mc3-filter{width:100%;padding:6px 10px;border-radius:8px;border:1px solid var(--SmartThemeBorderColor,#555);background:var(--black30a,rgba(0,0,0,.28));color:inherit;font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s;}' +
+    '.mc3-filter:focus{border-color:var(--SmartThemeQuoteColor,#3a6);box-shadow:0 0 0 2px rgba(58,170,102,.18);}' +
+    '.mc3-filter-count{position:absolute;right:8px;font-size:11px;opacity:0;pointer-events:none;font-variant-numeric:tabular-nums;transition:opacity .15s;}' +
+    '.mc3-filter-count.mc3-filter-count-on{opacity:.55;}' +
+    '.mc3-check-tip{display:inline-flex;align-items:center;gap:5px;font-size:12px;opacity:.75;cursor:pointer;user-select:none;white-space:nowrap;}' +
+    '.mc3-check-tip input{accent-color:var(--SmartThemeQuoteColor,#3a6);margin:0;}' +
+    '.mc3-tools-right{display:flex;gap:6px;}' +
+    '.mc3-mini-btn{cursor:pointer;background:var(--black30a,rgba(0,0,0,.25));color:inherit;border:1px solid var(--SmartThemeBorderColor,#555);border-radius:7px;padding:4px 10px;font-size:11.5px;opacity:.85;transition:opacity .15s,background .15s;}' +
+    '.mc3-mini-btn:hover{opacity:1;background:var(--black50a,rgba(128,128,128,.28));}' +
+    // 卡片：左侧强调条 + 计数胶囊
+    '.mc3-card{margin:10px 4px;border-radius:12px;border-left:3px solid var(--SmartThemeQuoteColor,#3a6);}' +
+    '.mc3-card-header{padding:9px 12px;gap:8px;}' +
+    '.mc3-card-title{font-size:13.5px;font-weight:600;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}' +
+    '.mc3-count-pill{margin-left:auto;flex-shrink:0;font-size:11px;font-variant-numeric:tabular-nums;padding:1px 8px;border-radius:999px;background:var(--black30a,rgba(0,0,0,.3));opacity:.75;}' +
+    '.mc3-hidden-pill{flex-shrink:0;font-size:11px;padding:1px 8px;border-radius:999px;background:rgba(220,53,69,.16);color:#ff8b8b;border:1px solid rgba(220,53,69,.32);}' +
+    '.mc3-bulk-btn{font-size:11px;padding:2px 8px;opacity:.75;}' +
+    '.mc3-card-header:hover .mc3-bulk-btn{opacity:1;}' +
+    '.mc3-bulk-btn:hover{opacity:1;}' +
+    // 行：增大触摸目标，操作按钮平时淡出
+    '.mc3-row{padding:7px 12px;gap:9px;border-radius:7px;}' +
+    '.mc3-row + .mc3-row{border-top:1px solid rgba(128,128,128,.09);}' +
+    '.mc3-row .mc3-toggle{opacity:.55;transition:opacity .15s;}' +
+    '.mc3-row:hover .mc3-toggle,.mc3-row .mc3-toggle:focus-visible{opacity:1;}' +
+    '.mc3-row.mc3-off .mc3-label{text-decoration:line-through;text-decoration-color:rgba(255,120,120,.55);}' +
+    '.mc3-subgroup{margin:4px 8px;border-radius:10px;}' +
+    '.mc3-subgroup-header{padding:7px 10px;}' +
+    // 键盘可达性
+    '#mc3-popup button:focus-visible,#mc3-popup input:focus-visible{outline:2px solid var(--SmartThemeQuoteColor,#3a6);outline-offset:1px;}' +
+    // 滚动条
+    '#mc3-body{scrollbar-gutter:stable;padding:2px 10px 16px;}' +
+    '#mc3-body::-webkit-scrollbar{width:9px;}' +
+    '#mc3-body::-webkit-scrollbar-thumb{background:var(--black50a,rgba(128,128,128,.4));border-radius:9px;}' +
+    // 窄屏
+    '@media screen and (max-width:520px){#mc3-popup{width:96vw;max-height:92vh;border-radius:12px;}#mc3-head{flex-wrap:wrap;gap:8px;}#mc3-tools{gap:6px;padding:8px 10px;}.mc3-tools-right{width:100%;justify-content:flex-end;}.mc3-row{padding:9px 10px;}}';
 
   function injectPopupCSS() {
     if (doc.getElementById('mc3-popup-style')) return;
@@ -2119,13 +2167,28 @@
 
   // ─── §10  UI — RENDER ────────────────────────────────────────────────────────
 
+  // 本组已隐藏条目数（卡片头胶囊用）
+  function countHidden(recs) {
+    let n = 0;
+    for (const r of recs) if (settings.hidden[r.key]) n++;
+    return n;
+  }
+
   // 共享卡片壳：折叠标题 + body 容器。headerExtra 放在标题右侧（如「+」新建子分组）。
-  function renderCard(gid, titleText, count, collapsed, dur, bodyHtml, headerExtra) {
+  function renderCard(gid, titleText, count, hiddenCount, collapsed, dur, bodyHtml, headerExtra) {
+    // 计数胶囊：总数 + （有隐藏时）已隐数；整组开关只在有内容时出现，避免空卡片上出现无意义按钮
+    const pills = '<span class="mc3-count-pill" title="本组共 ' + count + ' 项">' + count + '</span>' +
+      (hiddenCount > 0 ? '<span class="mc3-hidden-pill" title="已隐藏 ' + hiddenCount + ' 项">隐 ' + hiddenCount + '</span>' : '');
+    const bulk = count > 0
+      ? '<button type="button" class="mc3-toggle mc3-bulk-btn" data-action="toggle-all-hide" data-gid="' + gid + '" title="本组全部显示 / 全部隐藏">' +
+        (hiddenCount >= count ? '全显' : '全隐') + '</button>'
+      : '';
     return '<div class="mc3-card' + (collapsed ? ' mc3-collapsed' : '') + '" style="--mc3-dur:' + dur + 's;">' +
       '<div class="mc3-card-header" data-action="toggle-group" data-gid="' + gid + '" title="折叠或展开父分组">' +
         '<button type="button" class="mc3-card-collapse" title="折叠或展开父分组"><span class="mc3-chevron">▾</span></button>' +
         '<span class="mc3-card-title">' + escHtml(titleText) + '</span>' +
-        '<small>(' + count + ')</small>' +
+        pills +
+        bulk +
         (headerExtra || '') +
       '</div>' +
       '<div class="mc3-card-body"><div class="mc3-card-body-inner">' + bodyHtml + '</div></div>' +
@@ -2284,7 +2347,7 @@
 
     const headerExtra = '<button class="mc3-icon-btn" data-action="add-subgroup" data-gid="' + group.id + '" title="新建子分组" style="font-size:18px;font-weight:bold">+</button>';
 
-    return renderCard(group.id, group.name, recs.length, isCollapsed, cardDur, cols, headerExtra);
+    return renderCard(group.id, group.name, recs.length, countHidden(recs), isCollapsed, cardDur, cols, headerExtra);
   }
 
   // 渲染消息操作专属双栏卡片
@@ -2317,7 +2380,7 @@
     cols += '</div></div>';
     cols += '</div>';
 
-    return renderCard(group.id, group.name, recs.length, isCollapsed, cardDur, cols);
+    return renderCard(group.id, group.name, recs.length, countHidden(recs), isCollapsed, cardDur, cols);
   }
 
   function renderSettingsPanel() {
@@ -2399,22 +2462,48 @@
     for (const card of cards) {
       let visible = 0;
       const rows = card.querySelectorAll('.mc3-row[data-key]');
+      // 卡片标题也参与匹配：输入「世界书」这类组名时，整组都算命中，
+      // 否则用户按面板名搜会得到 0 结果（条目文本里根本不含组名）。
+      const titleEl = card.querySelector('.mc3-card-title');
+      const titleHit = uiFilter && titleEl && String(titleEl.textContent || '').toLowerCase().indexOf(uiFilter) !== -1;
       for (const row of rows) {
-        let show = uiFilter ? String(row.textContent || '').toLowerCase().indexOf(uiFilter) !== -1 : true;
+        let show = uiFilter ? (titleHit || String(row.textContent || '').toLowerCase().indexOf(uiFilter) !== -1) : true;
         if (show && uiOnlyEnabled) show = !!settings.hidden[row.getAttribute('data-key')];
         row.style.display = show ? '' : 'none';
         if (show) visible++;
       }
       card.style.display = (!on || visible > 0) ? '' : 'none';
     }
+    // 命中计数：让「筛出来的到底有几项」一眼可见，而不是靠数卡片
+    const cnt = doc.getElementById('mc3-filter-count');
+    if (cnt) {
+      const rowsAll = body.querySelectorAll('.mc3-row[data-key]');
+      let vis = 0;
+      for (const r of rowsAll) if (r.style.display !== 'none') vis++;
+      cnt.textContent = on ? vis + ' / ' + rowsAll.length : '';
+      cnt.classList.toggle('mc3-filter-count-on', !!on);
+    }
+    // 筛选时把折叠的卡片展开，否则命中的条目藏在收起的卡片里等于没筛
+    if (on) {
+      for (const card of body.querySelectorAll('.mc3-card.mc3-collapsed')) {
+        if (card.style.display === 'none') continue;
+        card.classList.remove('mc3-collapsed');
+      }
+    }
   }
 
   function renderSortPanel() {
     const all = scanAll();
     let html = '<div id="mc3-tools">' +
-      '<input id="mc3-filter" class="text_pole" type="search" placeholder="按名称筛选…" value="' + escHtml(uiFilter) + '" />' +
-      '<label class="mc3-tip" title="只显示当前已隐藏的项"><input id="mc3-only-enabled" type="checkbox"' + (uiOnlyEnabled ? ' checked' : '') + ' /> 仅看已启用</label>' +
-      '<span class="mc3-tip">点击 + 号新建一个子分组</span></div>';
+      '<div class="mc3-filter-wrap">' +
+        '<input id="mc3-filter" class="text_pole mc3-filter" type="search" placeholder="按名称筛选（/ 聚焦，Esc 清空）" value="' + escHtml(uiFilter) + '" />' +
+        '<span id="mc3-filter-count" class="mc3-filter-count"></span>' +
+      '</div>' +
+      '<label class="mc3-check-tip" title="只显示当前已隐藏的项"><input id="mc3-only-enabled" type="checkbox"' + (uiOnlyEnabled ? ' checked' : '') + ' /><span>仅看已启用</span></label>' +
+      '<div class="mc3-tools-right">' +
+        '<button type="button" class="mc3-mini-btn" data-action="expand-all" title="展开全部卡片">展开</button>' +
+        '<button type="button" class="mc3-mini-btn" data-action="collapse-all" title="折叠全部卡片">折叠</button>' +
+      '</div></div>';
 
     for (const group of GROUPS) {
       const recs = (all[group.id] || []).slice();
@@ -2486,7 +2575,7 @@
       const headerExtra = supportsSg
         ? '<button class="mc3-icon-btn" data-action="add-subgroup" data-gid="' + group.id + '" title="新建子分组" style="font-size:18px;font-weight:bold">+</button>'
         : '';
-      html += renderCard(group.id, group.name, recs.length, !!settings.groupCollapsed[group.id], calcCollapseDuration(recs.length), body, headerExtra);
+      html += renderCard(group.id, group.name, recs.length, countHidden(recs), !!settings.groupCollapsed[group.id], calcCollapseDuration(recs.length), body, headerExtra);
     }
 
     // 自定义 Selector 卡片
@@ -2520,7 +2609,8 @@
       }
     }
     cbody += '</div></div>';
-    html += renderCard('customSelectors', '指哪消哪', customList.length, customCollapsed, calcCollapseDuration(customList.length), cbody);
+      html += renderCard('customSelectors', '指哪消哪', customList.length,
+        customList.filter((c) => !!settings.hidden[c.id]).length, customCollapsed, calcCollapseDuration(customList.length), cbody);
 
     return html;
   }
@@ -2552,7 +2642,7 @@
     ov.innerHTML = '<div id="mc3-popup">' +
       '<div id="mc3-head">' +
         '<div class="mc3-head-title">' +
-          '<span>菜单精简器</span>' +
+          '<span class="mc3-brand">菜单精简器<span class="mc3-ver-pill" title="内部版本号">M28</span></span>' +
           '<div class="mc3-tabs">' +
             '<button type="button" class="mc3-tab" data-action="switch-tab" data-tab="sort">菜单排序</button>' +
             '<button type="button" class="mc3-tab" data-action="switch-tab" data-tab="settings">插件设置</button>' +
@@ -2575,6 +2665,20 @@
         const res = CustomSelectors.add(e.target.value.trim());
         if (!res.success) { win.alert(res.error); e.target.focus(); } else { renderPopup(); }
       }
+    });
+    popup.addEventListener('keydown', (e) => {
+      const inp = doc.getElementById('mc3-filter');
+      if (!inp) return;
+      if (e.key === 'Escape' && doc.activeElement === inp && inp.value) {
+        e.stopPropagation();
+        inp.value = '';
+        uiFilter = '';
+        applyFilterToDom();
+        return;
+      }
+      // 光标不在输入框里时，按 / 直接跳到筛选
+      const typing = doc.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(doc.activeElement.tagName);
+      if (e.key === '/' && !typing) { e.preventDefault(); inp.focus(); inp.select(); }
     });
     popup.addEventListener('input', (e) => {
       // 过滤框：只重画列表，不动输入框本身（renderPopup 会保留 #id 焦点与滚动）
@@ -2690,6 +2794,34 @@
       settings.column[k] = newCol;
       if (newCol === 1 && settings.columnMode === 'single') settings.columnMode = 'dual';
       saveSettings(); applyAll(); renderPopup();
+    },
+
+    'toggle-all-hide': (t) => {
+      const gid = t.getAttribute('data-gid');
+      let keys;
+      if (gid === 'customSelectors') keys = (settings.customSelectors || []).map((c) => c.id);
+      else keys = ((scanAll()[gid]) || []).map((r) => r.key);
+      if (!keys.length) return;
+      const allHidden = keys.every((k) => !!settings.hidden[k]);
+      for (const k of keys) {
+        if (allHidden) delete settings.hidden[k]; else settings.hidden[k] = true;
+      }
+      saveSettings(); applyAll(); renderPopup();
+    },
+
+    'expand-all': () => {
+      for (const g of GROUPS) settings.groupCollapsed[g.id] = false;
+      settings.groupCollapsed.customSelectors = false;
+      for (const sg of (settings.subgroups ? Object.values(settings.subgroups) : [])) {
+        for (const one of (sg || [])) one.collapsed = false;
+      }
+      saveSettings(); renderPopup();
+    },
+
+    'collapse-all': () => {
+      for (const g of GROUPS) settings.groupCollapsed[g.id] = true;
+      settings.groupCollapsed.customSelectors = true;
+      saveSettings(); renderPopup();
     },
 
     'add-subgroup': (t) => { Subgroups.add(t.getAttribute('data-gid')); renderPopup(); },
@@ -3176,7 +3308,7 @@
       }, d);
     });
     win.__mc3 = {
-      version: 'M27',
+      version: 'M28',
       settings,
       groups: GROUPS,
       getGroup,
