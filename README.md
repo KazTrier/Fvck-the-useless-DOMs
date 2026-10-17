@@ -9,14 +9,57 @@
 - 测试按钮和扩展面板下`已弃用的API`部分默认隐藏
 - 左下菜单，魔棒，顶栏，扩展面板可隐藏和重排序，扩展面板可切换单双栏
 - 预设和用户设置区域可分块隐藏与可选折叠
+- **世界书面板**可分块隐藏（多选器 / 全局激活设置 / 条目工具栏 / 条目列表）
+- **高级格式化**三栏（上下文模板 / Instruct / 系统提示词）可分块隐藏
+- **背景面板**（标签栏 / 全局背景 / 聊天背景）可分块隐藏
+- **角色面板**（新建角色 / 群聊控制 / 角色导入 / 角色列表）可分块隐藏
 - QR区域可隐藏按钮与折叠
 - 以及隐藏其他一切你不想看见的东西
 
 ## 开始使用
 
 - 确保你安装了 [酒馆助手](https://github.com/N0VI028/JS-Slash-Runner)
-- 然后 [点我获取可自动更新的脚本](https://github.com/Harrishao/Fvck-the-useless-DOMs/releases/download/v0.0.1/menu-cleaner-autoupdate.json)
+- 然后从本仓库的 [`dist/酒馆助手脚本-菜单精简器.json`](https://github.com/KazTrier/Fvck-the-useless-DOMs/blob/main/dist/酒馆助手脚本-菜单精简器.json) 下载脚本
 - 在酒馆助手中导入脚本，随后在左下角魔棒菜单里打开操作面板
 - 本插件入口也可以隐藏，隐藏后可在输入框使用`/menucleaner`命令打开操作面板
 - 如果发生某种情况让你无法与扩展面板互动了，使用 `/menucleanerdisable`禁用插件
 - **大家一起开心的玩吧**
+
+## TauriTavern 用户请读这段
+
+TauriTavern 有「Panel Runtime」档位（设置项 `tauritavern-settings.panel_runtime_profile`，默认 `off`）。
+把它调到 `compat` / `aggressive` 后，宿主会把收起状态的抽屉内容从文档里摘走（parking），
+插件的选择器就查不到节点了。表现是**某些板块整块看不见**，最典型的是：
+
+| 现象 | 被摘走的节点 | 对应 slot |
+| --- | --- | --- |
+| 预设板块条目变少 | `#left-nav-panel .scrollableInner` | `panel:left-nav-panel` |
+| 用户设置扫不到 | `#user-settings-block-content` | `panel:user-settings-block` |
+| 世界书面板扫不到 | `#wi-holder` | `panel:WorldInfo` |
+| 高级格式化扫不到 | `#AdvancedFormatting .flex-container.spaceEvenly` | `panel:AdvancedFormatting` |
+| 背景面板扫不到 | `#bg_tabs` | `panel:Backgrounds` |
+| 扩展设置扫不到 | 各 `.extension_container` 的子节点 | `tt:gate:rm_extensions_block:extension_containers` |
+
+本版在扫描前会自动调用宿主的 `__TAURITAVERN_PANEL_RUNTIME__.setVisible(slot, true)` + `reconcile()` 把节点接回来，
+接回后立刻复位，抽屉不会自己弹开。如果仍有板块缺失，**先手动点开一次那个抽屉**再打开管理面板即可。
+
+## 更新记录
+
+### 1018.0.0 / M20
+
+- 新增四块面板覆盖：世界书、高级格式化、背景、角色面板
+- 修复自定义 Selector 在受管条目上完全失效（隐藏类拆分为 `mc3-gone`，不再被分组显隐擦除）
+- 修复「恢复此组 / 全部恢复」不还原扩展面板左右栏位
+- 修复原生栏位快照时机（改为插件动手之前记录）
+- 修复消息按钮在缺少省略号收纳结构时整组静默失效
+- 补 `display:contents` 容器下扩展面板条目的隐藏权重
+- 拖拽增加 4px 阈值与 `pointercancel` 收尾，纯点击不再误触发排序
+- 管理面板重建时保留滚动位置与键盘焦点
+- `escHtml` 支持数字与单引号；子分组 id 统一走属性转义
+- 设置加载改深拷贝，容器型字段补类型校验
+- observer 容器集合剪枝、`body` 深层监听、重复注入单例保护
+
+### 1017.0.0 / M19
+
+- 修复 TauriTavern Panel Runtime 停放导致的三处扫描空缺（扩展设置 / 用户设置 / 预设）
+- QR 面板按钮在弹出（popout）模式下扫不到的兜底
